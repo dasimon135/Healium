@@ -176,6 +176,11 @@ local function ShowManaCheck_OnClick(frame)
 	Healium_UpdateShowMana()
 end
 
+local function OpaqueHealthbarBackgroundCheck_OnClick(frame)
+	Healium.OpaqueHealthbarBackground = frame:GetChecked() or false
+	Healium_UpdateOpaqueHealthbarBackgrounds()
+end
+
 local function ShowThreatCheck_OnClick(frame)
 	Healium.ShowThreat = frame:GetChecked() or false
 	Healium_UpdateShowThreat()
@@ -389,9 +394,14 @@ function Healium_CreateConfigPanel(Class, Version)
 	local ClassColorCheck = CreateCheck("$parentClassColorCheckButton",scrollchild,ShowManaCheck, 
 	"Colors the healthbar based on the unit's class instead of green/yellow/red based on it's current health.", "Use Class Colors")
     ClassColorCheck:SetScript("OnClick", ClassColorCheck_OnClick)
+
+	-- Opaque healthbar background check button
+	local OpaqueHealthbarBackgroundCheck = CreateCheck("$parentOpaqueHealthbarBackgroundCheckButton", scrollchild, ClassColorCheck,
+		"Displays a solid dark background behind the healthbar, making missing health and player names easier to see.", "Opaque Healthbar Background")
+	OpaqueHealthbarBackgroundCheck:SetScript("OnClick", OpaqueHealthbarBackgroundCheck_OnClick)
 	
 	-- Hide Close Check button
-	local HideCloseButtonCheck = CreateCheck("$parentHideCloseCheckButton",scrollchild,ClassColorCheck,
+	local HideCloseButtonCheck = CreateCheck("$parentHideCloseCheckButton",scrollchild,OpaqueHealthbarBackgroundCheck,
 		"Hides the X (close) button on the upper-right of the " .. Healium_AddonColoredName ..	" caption bar.", "Hide Close Buttons")		
 	HideCloseButtonCheck:SetScript("OnClick", HideCloseButtonCheck_OnClick)	
 
@@ -852,6 +862,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	TooltipsCheck:SetChecked(Healium.ShowToolTips)		
 	ShowManaCheck:SetChecked(Healium.ShowMana)
 	ClassColorCheck:SetChecked(Healium.UseClassColors)
+	OpaqueHealthbarBackgroundCheck:SetChecked(Healium.OpaqueHealthbarBackground)
 	RangeCheckCheck:SetChecked(Healium.DoRangeChecks)
 	ShowBuffsCheck:SetChecked(Healium.ShowBuffs)	
 	EnableCooldownsCheck:SetChecked(Healium.EnableCooldowns)	

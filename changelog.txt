@@ -1,3 +1,6 @@
+3.3.9
+* Retail: Added Opaque Healthbar Background option
+
 3.3.8
 * Retail: Fixed alignment of the Party Frame Order setting in the configuration panel.
 * Retail: Removed Devotion Aura from special buffs to always show.

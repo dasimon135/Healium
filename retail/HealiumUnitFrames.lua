@@ -761,6 +761,24 @@ function HealiumUnitFrames_Button_OnLoad(frame)
 	frame.buttons = { }
 	frame:RegisterForClicks("AnyUp", "AnyDown")	
 	frame.PredictBar:SetShown(Healium.ShowIncomingHeals and true or false)
+
+	local healthbarBackgroundBase = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+	healthbarBackgroundBase:SetTexture("Interface\\Buttons\\WHITE8X8")
+	healthbarBackgroundBase:SetVertexColor(0, 0, 0, 1)
+	healthbarBackgroundBase:SetPoint("TOPLEFT", frame.HealthBar, "TOPLEFT")
+	healthbarBackgroundBase:SetPoint("BOTTOMRIGHT", frame.HealthBar, "BOTTOMRIGHT")
+
+	local healthbarBackgroundTexture = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
+	healthbarBackgroundTexture:SetTexture("Interface\\TutorialFrame\\TutorialFrameBackground")
+	healthbarBackgroundTexture:SetPoint("TOPLEFT", frame.HealthBar, "TOPLEFT")
+	healthbarBackgroundTexture:SetPoint("BOTTOMRIGHT", frame.HealthBar, "BOTTOMRIGHT")
+	healthbarBackgroundTexture:SetHorizTile(true)
+	healthbarBackgroundTexture:SetVertTile(true)
+
+	local showHealthbarBackground = Healium.OpaqueHealthbarBackground and true or false
+	healthbarBackgroundBase:SetShown(showHealthbarBackground)
+	healthbarBackgroundTexture:SetShown(showHealthbarBackground)
+	frame.HealthbarOpaqueBackgrounds = { healthbarBackgroundBase, healthbarBackgroundTexture }
 	
 	table.insert(Healium_Frames, frame)
 	
@@ -778,6 +796,16 @@ function HealiumUnitFrames_Button_OnLoad(frame)
 	end
 
 	frame:RegisterForDrag("RightButton")
+end
+
+function Healium_UpdateOpaqueHealthbarBackgrounds()
+	for _, frame in ipairs(Healium_Frames) do
+		if frame.HealthbarOpaqueBackgrounds then
+			for _, background in ipairs(frame.HealthbarOpaqueBackgrounds) do
+				background:SetShown(Healium.OpaqueHealthbarBackground and true or false)
+			end
+		end
+	end
 end
 
 function HealiumUnitFrames_Button_OnShow(frame)

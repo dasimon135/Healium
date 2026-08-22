@@ -54,6 +54,7 @@ local HealiumDefaults = {
   ShowToolTips = true,							-- Whether or not to display a tooltip for the spell when hovering over buttons
   --ShowPercentage = true,						-- Whether or not to display the health percentage
   UseClassColors = false,						-- Whether or not to color the healthbar the color of the class instead of green/yellow/red
+  OpaqueHealthbarBackground = false,			-- Whether or not to show a dark opaque background behind the healthbar
   ShowDefaultPartyFrames = false,				-- Whether or not to show the default party frames
   ShowPartyFrame = true,						-- Whether or not to show the party frame
   ShowPetsFrame = true,							-- Whether or not to show the pets frame
