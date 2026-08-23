@@ -1124,6 +1124,12 @@ local function InitVariables()
 	if HealiumGlobal.Friends == nil then
 		HealiumGlobal.Friends = { }
 	end
+
+	-- Named, class-specific copies of button configurations. These are not
+	-- active profiles; loading one copies it into the current specialization.
+	if HealiumGlobal.ClassProfiles == nil then
+		HealiumGlobal.ClassProfiles = { }
+	end
 	
 	if Healium.Profiles == nil then
 		Healium.Profiles = { }

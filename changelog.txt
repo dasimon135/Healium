@@ -1,5 +1,9 @@
+3.4.0
+* Retail: Added a Profiles subcategory to Healium’s options, allowing players to save and reuse class-specific button setups across characters of the same class.
+* Retail: Greatly improved the look of the minimap button.
+
 3.3.9
-* Retail: Added Opaque Healthbar Background option
+* Retail: Added Opaque Healthbar Background option.
 
 3.3.8
 * Retail: Fixed alignment of the Party Frame Order setting in the configuration panel.

@@ -6,6 +6,367 @@ local PartyFrameOrderOptions = {
 	{ text = "Tank-Healer-DPS", value = "TANK_HEALER_DPS" },
 }
 
+local ProfilesPanel
+local ProfilesPanelRows = {}
+local ProfilesPanelSelectedName
+local ProfilesPanelStatus
+local ProfilesPanelOverwriteButton
+local ProfilesPanelLoadButton
+local ProfilesPanelRenameButton
+local ProfilesPanelDeleteButton
+
+local function GetClassProfiles()
+	local _, class = UnitClass("player")
+	HealiumGlobal.ClassProfiles = HealiumGlobal.ClassProfiles or {}
+	HealiumGlobal.ClassProfiles[class] = HealiumGlobal.ClassProfiles[class] or {}
+	return HealiumGlobal.ClassProfiles[class]
+end
+
+local function CopyProfile(profile)
+	return {
+		ButtonCount = profile.ButtonCount,
+		PartyFrameOrder = profile.PartyFrameOrder,
+		SpellNames = Healium_DeepCopy(profile.SpellNames or {}),
+		SpellIcons = Healium_DeepCopy(profile.SpellIcons or {}),
+		SpellTypes = Healium_DeepCopy(profile.SpellTypes or {}),
+		SpellRanks = Healium_DeepCopy(profile.SpellRanks or {}),
+		IDs = Healium_DeepCopy(profile.IDs or {}),
+	}
+end
+
+local function FindProfileName(name, ignoredName)
+	local wanted = string.lower(name)
+	for existingName in pairs(GetClassProfiles()) do
+		if existingName ~= ignoredName and string.lower(existingName) == wanted then
+			return existingName
+		end
+	end
+end
+
+local function NormalizeProfileName(name)
+	name = strtrim(name or "")
+	if name == "" then
+		Healium_Warn("Enter a profile name.")
+		return
+	end
+	return name
+end
+
+local function SetProfilesPanelStatus(message)
+	if ProfilesPanelStatus then
+		ProfilesPanelStatus:SetText(message or "")
+	end
+end
+
+local function RefreshProfilesPanel()
+	if not ProfilesPanel then return end
+
+	local names = {}
+	for name in pairs(GetClassProfiles()) do
+		table.insert(names, name)
+	end
+	table.sort(names, function(left, right)
+		return string.lower(left) < string.lower(right)
+	end)
+
+	if ProfilesPanelSelectedName and not GetClassProfiles()[ProfilesPanelSelectedName] then
+		ProfilesPanelSelectedName = nil
+	end
+
+	FauxScrollFrame_Update(ProfilesPanel.scrollFrame, #names, #ProfilesPanelRows, 26)
+	local offset = FauxScrollFrame_GetOffset(ProfilesPanel.scrollFrame)
+	for index, row in ipairs(ProfilesPanelRows) do
+		local name = names[index + offset]
+		if name then
+			row.profileName = name
+			row:SetText(name)
+			row:Show()
+			if name == ProfilesPanelSelectedName then
+				row:LockHighlight()
+			else
+				row:UnlockHighlight()
+			end
+		else
+			row.profileName = nil
+			row:Hide()
+		end
+	end
+
+	ProfilesPanel.emptyText:SetShown(#names == 0)
+	local hasSelection = ProfilesPanelSelectedName ~= nil
+	ProfilesPanelOverwriteButton:SetEnabled(hasSelection)
+	ProfilesPanelLoadButton:SetEnabled(hasSelection)
+	ProfilesPanelRenameButton:SetEnabled(hasSelection)
+	ProfilesPanelDeleteButton:SetEnabled(hasSelection)
+end
+
+StaticPopupDialogs["HEALIUM_PROFILE_NAME"] = {
+	text = "%s",
+	button1 = ACCEPT,
+	button2 = CANCEL,
+	hasEditBox = true,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+	OnShow = function(self, data)
+		self.EditBox:SetMaxLetters(40)
+		self.EditBox:SetText(data.initialName or "")
+		self.EditBox:HighlightText()
+		self.EditBox:SetFocus()
+	end,
+	OnAccept = function(self, data)
+		data.callback(self.EditBox:GetText())
+	end,
+	EditBoxOnEnterPressed = function(editBox)
+		local dialog = editBox:GetParent()
+		dialog.Buttons[1]:Click()
+	end,
+	EditBoxOnEscapePressed = function(editBox)
+		editBox:GetParent():Hide()
+	end,
+}
+
+StaticPopupDialogs["HEALIUM_PROFILE_CONFIRM"] = {
+	text = "%s",
+	button1 = YES,
+	button2 = NO,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+	OnAccept = function(_, data)
+		data.callback()
+	end,
+}
+
+StaticPopupDialogs["HEALIUM_PROFILE_OVERWRITE"] = {
+	text = "%s",
+	button1 = "Overwrite",
+	button2 = CANCEL,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+	OnAccept = function(_, data)
+		data.callback()
+	end,
+}
+
+local function ShowProfileNameDialog(prompt, initialName, callback)
+	StaticPopup_Show("HEALIUM_PROFILE_NAME", prompt, nil, {
+		initialName = initialName,
+		callback = callback,
+	})
+end
+
+local function ShowProfileConfirmation(prompt, callback)
+	StaticPopup_Show("HEALIUM_PROFILE_CONFIRM", prompt, nil, { callback = callback })
+end
+
+local function ShowProfileOverwriteConfirmation(prompt, callback)
+	StaticPopup_Show("HEALIUM_PROFILE_OVERWRITE", prompt, nil, { callback = callback })
+end
+
+local function AddNewProfile()
+	ShowProfileNameDialog("Name the new profile:", "", function(name)
+		name = NormalizeProfileName(name)
+		if not name then return end
+		local existingName = FindProfileName(name)
+		if existingName then
+			ShowProfileOverwriteConfirmation("A profile named '" .. existingName .. "' already exists. Replace it with your current Healium button setup?", function()
+				GetClassProfiles()[existingName] = CopyProfile(Healium_GetProfile())
+				ProfilesPanelSelectedName = existingName
+				SetProfilesPanelStatus("Overwrote '" .. existingName .. "'.")
+				RefreshProfilesPanel()
+			end)
+			return
+		end
+		GetClassProfiles()[name] = CopyProfile(Healium_GetProfile())
+		ProfilesPanelSelectedName = name
+		SetProfilesPanelStatus("Added '" .. name .. "' from your current Healium button setup.")
+		RefreshProfilesPanel()
+	end)
+end
+
+local function OverwriteProfile()
+	local name = ProfilesPanelSelectedName
+	if not name then return end
+	ShowProfileConfirmation("Replace '" .. name .. "' with your current Healium button setup?", function()
+		GetClassProfiles()[name] = CopyProfile(Healium_GetProfile())
+		SetProfilesPanelStatus("Overwrote '" .. name .. "'.")
+		RefreshProfilesPanel()
+	end)
+end
+
+local function LoadProfile()
+	local name = ProfilesPanelSelectedName
+	local savedProfile = name and GetClassProfiles()[name]
+	if not savedProfile then return end
+	if InCombatLockdown() then
+		Healium_Warn("Profiles cannot be loaded during combat.")
+		return
+	end
+	ShowProfileConfirmation("Load '" .. name .. "'? This will replace your current specialization's Healium button setup.", function()
+		if InCombatLockdown() then
+			Healium_Warn("Profiles cannot be loaded during combat.")
+			return
+		end
+		local specialization = GetSpecialization() or 1
+		Healium.Profiles[specialization] = CopyProfile(savedProfile)
+		Healium_Update_ConfigPanel()
+		Healium_UpdateButtonIcons()
+		Healium_UpdateButtonAttributes()
+		Healium_UpdateButtonVisibility()
+		if Healium_RefreshAuraContainers then
+			Healium_RefreshAuraContainers()
+		end
+		if not Healium_UpdatePartyFrameOrder() then
+			Healium_Print("Party Frame Order will be applied when combat ends.")
+		end
+		SetProfilesPanelStatus("Loaded '" .. name .. "' into your current specialization.")
+	end)
+end
+
+local function RenameProfile()
+	local oldName = ProfilesPanelSelectedName
+	if not oldName then return end
+	ShowProfileNameDialog("Rename the selected profile:", oldName, function(newName)
+		newName = NormalizeProfileName(newName)
+		if not newName or newName == oldName then return end
+		if FindProfileName(newName, oldName) then
+			Healium_Warn("A profile named '" .. newName .. "' already exists.")
+			return
+		end
+		local profiles = GetClassProfiles()
+		profiles[newName] = profiles[oldName]
+		profiles[oldName] = nil
+		ProfilesPanelSelectedName = newName
+		SetProfilesPanelStatus("Renamed '" .. oldName .. "' to '" .. newName .. "'.")
+		RefreshProfilesPanel()
+	end)
+end
+
+local function DeleteProfile()
+	local name = ProfilesPanelSelectedName
+	if not name then return end
+	ShowProfileConfirmation("Delete the saved profile '" .. name .. "'? This will not change any character's Healium button setup.", function()
+		GetClassProfiles()[name] = nil
+		ProfilesPanelSelectedName = nil
+		SetProfilesPanelStatus("Deleted '" .. name .. "'.")
+		RefreshProfilesPanel()
+	end)
+end
+
+local function CreateProfilesPanel(parentCategory)
+	local panel = CreateFrame("Frame", nil, UIParent)
+	ProfilesPanel = panel
+	panel.name = "Profiles"
+
+	local category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, panel.name)
+	Settings.RegisterAddOnCategory(category)
+
+	local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	title:SetPoint("TOPLEFT", 20, -20)
+	title:SetText("Healium Profiles")
+
+	local _, class = UnitClass("player")
+	local classIcon = CreateFrame("Frame", nil, panel)
+	classIcon:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -35, -20)
+	classIcon:SetSize(60, 60)
+	local classIconTexture = classIcon:CreateTexture(nil, "BACKGROUND")
+	classIconTexture:SetAllPoints()
+	classIconTexture:SetTexture("Interface/Glues/CHARACTERCREATE/UI-CHARACTERCREATE-CLASSES")
+	local coords = CLASS_ICON_TCOORDS[class]
+	classIconTexture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	local classIconText = classIcon:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	classIconText:SetPoint("CENTER", 0, -38)
+	classIconText:SetText(strupper(class))
+	classIconText:SetTextColor(1, 1, 0.2, 1)
+
+	local description = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
+	description:SetWidth(500)
+	description:SetJustifyH("LEFT")
+	description:SetText("Profiles are saved copies of your Healium button setup. They can be reused by this character and by other characters of the same class. Saved profiles do not change when you edit your Healium buttons. To update a saved profile, select it and click Overwrite Profile.")
+
+	local listFrame = CreateFrame("Frame", nil, panel, BackdropTemplateMixin and "BackdropTemplate")
+	listFrame:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -20)
+	listFrame:SetSize(420, 280)
+	if listFrame.SetBackdrop then
+		listFrame:SetBackdrop({
+			bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+			edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+			edgeSize = 12,
+			insets = { left = 3, right = 3, top = 3, bottom = 3 },
+		})
+		listFrame:SetBackdropColor(0, 0, 0, 0.35)
+	end
+
+	panel.emptyText = listFrame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+	panel.emptyText:SetPoint("CENTER")
+	panel.emptyText:SetText("No saved profiles for this class.")
+
+	panel.scrollFrame = CreateFrame("ScrollFrame", nil, listFrame, "FauxScrollFrameTemplate")
+	panel.scrollFrame:SetPoint("TOPLEFT", 4, -4)
+	panel.scrollFrame:SetPoint("BOTTOMRIGHT", -26, 4)
+	panel.scrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+		FauxScrollFrame_OnVerticalScroll(self, offset, 26, RefreshProfilesPanel)
+	end)
+
+	for index = 1, 10 do
+		local row = CreateFrame("Button", nil, listFrame)
+		row:SetPoint("TOPLEFT", 8, -8 - ((index - 1) * 26))
+		row:SetSize(380, 24)
+		row:SetHighlightTexture("Interface/QuestFrame/UI-QuestTitleHighlight", "ADD")
+		local rowText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		rowText:SetPoint("LEFT", 8, 0)
+		row:SetFontString(rowText)
+		row:SetScript("OnClick", function(self)
+			ProfilesPanelSelectedName = self.profileName
+			SetProfilesPanelStatus("")
+			RefreshProfilesPanel()
+		end)
+		ProfilesPanelRows[index] = row
+	end
+
+	local addButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	addButton:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -15)
+	addButton:SetSize(145, 24)
+	addButton:SetText("Add New Profile...")
+	addButton:SetScript("OnClick", AddNewProfile)
+
+	ProfilesPanelOverwriteButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ProfilesPanelOverwriteButton:SetPoint("LEFT", addButton, "RIGHT", 8, 0)
+	ProfilesPanelOverwriteButton:SetSize(145, 24)
+	ProfilesPanelOverwriteButton:SetText("Overwrite Profile")
+	ProfilesPanelOverwriteButton:SetScript("OnClick", OverwriteProfile)
+
+	ProfilesPanelLoadButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ProfilesPanelLoadButton:SetPoint("TOPLEFT", addButton, "BOTTOMLEFT", 0, -8)
+	ProfilesPanelLoadButton:SetSize(145, 24)
+	ProfilesPanelLoadButton:SetText("Load Profile")
+	ProfilesPanelLoadButton:SetScript("OnClick", LoadProfile)
+
+	ProfilesPanelRenameButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ProfilesPanelRenameButton:SetPoint("LEFT", ProfilesPanelLoadButton, "RIGHT", 8, 0)
+	ProfilesPanelRenameButton:SetSize(120, 24)
+	ProfilesPanelRenameButton:SetText("Rename Profile")
+	ProfilesPanelRenameButton:SetScript("OnClick", RenameProfile)
+
+	ProfilesPanelDeleteButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ProfilesPanelDeleteButton:SetPoint("LEFT", ProfilesPanelRenameButton, "RIGHT", 8, 0)
+	ProfilesPanelDeleteButton:SetSize(120, 24)
+	ProfilesPanelDeleteButton:SetText("Delete Profile")
+	ProfilesPanelDeleteButton:SetScript("OnClick", DeleteProfile)
+
+	ProfilesPanelStatus = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	ProfilesPanelStatus:SetPoint("TOPLEFT", ProfilesPanelLoadButton, "BOTTOMLEFT", 0, -15)
+	ProfilesPanelStatus:SetWidth(600)
+	ProfilesPanelStatus:SetJustifyH("LEFT")
+	ProfilesPanelStatus:SetTextColor(0.4, 1, 0.4)
+
+	panel:SetScript("OnShow", RefreshProfilesPanel)
+	RefreshProfilesPanel()
+end
+
 local function PartyFrameOrderDropDown_OnClick(dropdownbutton)
 	local profile = Healium_GetProfile()
 	profile.PartyFrameOrder = dropdownbutton.value
@@ -41,9 +402,8 @@ local function CreateSliderFrame(name, parent)
 	return slider
 end
 
-local function CreateDropDownMenu(name,parent,x,y)
+local function CreateDropDownMenu(name,parent)
   local f = CreateFrame("Frame", name, parent, "Lib_UIDropDownMenuTemplate") 
-  f:SetPoint("TOPLEFT", parent, "TOPLEFT",x,y)
   Lib_UIDropDownMenu_SetWidth(f, 180)  
   
   f.Text = f:CreateFontString(nil, "OVERLAY","GameFontNormal")
@@ -321,6 +681,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	Healium_ConfigPanel_Category, layout = Settings.RegisterCanvasLayoutCategory(panel, panel.name);
 	--Healium_ConfigPanel_CategoryID = Healium_ConfigPanel_Category:GetID()
 	Settings.RegisterAddOnCategory(Healium_ConfigPanel_Category);
+	CreateProfilesPanel(Healium_ConfigPanel_Category)
 
 
 	local scrollframe = CreateFrame("ScrollFrame", "HealiumPanelScrollFrame", panel, "UIPanelScrollFrameTemplate") 
@@ -468,12 +829,15 @@ function Healium_CreateConfigPanel(Class, Version)
 	ButtonConfigTitleSubText:SetText("Click the dropdowns to configure each button.|nYou may now drag and drop directly from the spellbook|nonto buttons to configure them, including buffs!")
 	ButtonConfigTitleSubText:SetTextColor(1,1,1,1) 	
 
-	local y = -480
 	local y_inc = 20
 	
 	for i=1, Healium_MaxButtons, 1 do
-		HealiumDropDown[i] = CreateDropDownMenu("HealiumDropDown[" .. i .. "]",scrollchild,60,y)
-		y = y - y_inc
+		HealiumDropDown[i] = CreateDropDownMenu("HealiumDropDown[" .. i .. "]",scrollchild)
+		if i == 1 then
+			HealiumDropDown[i]:SetPoint("TOPLEFT", ButtonConfigTitleSubText, "BOTTOMLEFT", 50, -5)
+		else
+			HealiumDropDown[i]:SetPoint("TOPLEFT", HealiumDropDown[i - 1], "TOPLEFT", 0, -y_inc)
+		end
 		HealiumDropDown[i].Text:SetText("Button " .. i)
 --		HealiumDropDown[i].tooltipText = Healium_AddonColoredName .. " button"
 	end
