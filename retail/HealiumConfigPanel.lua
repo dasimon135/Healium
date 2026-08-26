@@ -15,6 +15,15 @@ local ProfilesPanelLoadButton
 local ProfilesPanelRenameButton
 local ProfilesPanelDeleteButton
 
+local FrameLayoutsPanel
+local FrameLayoutsPanelRows = {}
+local FrameLayoutsPanelSelectedName
+local FrameLayoutsPanelStatus
+local FrameLayoutsPanelOverwriteButton
+local FrameLayoutsPanelLoadButton
+local FrameLayoutsPanelRenameButton
+local FrameLayoutsPanelDeleteButton
+
 local function GetClassProfiles()
 	local _, class = UnitClass("player")
 	HealiumGlobal.ClassProfiles = HealiumGlobal.ClassProfiles or {}
@@ -46,7 +55,7 @@ end
 local function NormalizeProfileName(name)
 	name = strtrim(name or "")
 	if name == "" then
-		Healium_Warn("Enter a profile name.")
+		Healium_Warn("Enter a button profile name.")
 		return
 	end
 	return name
@@ -166,12 +175,12 @@ local function ShowProfileOverwriteConfirmation(prompt, callback)
 end
 
 local function AddNewProfile()
-	ShowProfileNameDialog("Name the new profile:", "", function(name)
+	ShowProfileNameDialog("Name the new button profile:", "", function(name)
 		name = NormalizeProfileName(name)
 		if not name then return end
 		local existingName = FindProfileName(name)
 		if existingName then
-			ShowProfileOverwriteConfirmation("A profile named '" .. existingName .. "' already exists. Replace it with your current Healium button setup?", function()
+			ShowProfileOverwriteConfirmation("A button profile named '" .. existingName .. "' already exists. Replace it with your current Healium button setup?", function()
 				GetClassProfiles()[existingName] = CopyProfile(Healium_GetProfile())
 				ProfilesPanelSelectedName = existingName
 				SetProfilesPanelStatus("Overwrote '" .. existingName .. "'.")
@@ -201,12 +210,12 @@ local function LoadProfile()
 	local savedProfile = name and GetClassProfiles()[name]
 	if not savedProfile then return end
 	if InCombatLockdown() then
-		Healium_Warn("Profiles cannot be loaded during combat.")
+		Healium_Warn("Button profiles cannot be loaded during combat.")
 		return
 	end
 	ShowProfileConfirmation("Load '" .. name .. "'? This will replace your current specialization's Healium button setup.", function()
 		if InCombatLockdown() then
-			Healium_Warn("Profiles cannot be loaded during combat.")
+			Healium_Warn("Button profiles cannot be loaded during combat.")
 			return
 		end
 		local specialization = GetSpecialization() or 1
@@ -228,11 +237,11 @@ end
 local function RenameProfile()
 	local oldName = ProfilesPanelSelectedName
 	if not oldName then return end
-	ShowProfileNameDialog("Rename the selected profile:", oldName, function(newName)
+	ShowProfileNameDialog("Rename the selected button profile:", oldName, function(newName)
 		newName = NormalizeProfileName(newName)
 		if not newName or newName == oldName then return end
 		if FindProfileName(newName, oldName) then
-			Healium_Warn("A profile named '" .. newName .. "' already exists.")
+			Healium_Warn("A button profile named '" .. newName .. "' already exists.")
 			return
 		end
 		local profiles = GetClassProfiles()
@@ -247,7 +256,7 @@ end
 local function DeleteProfile()
 	local name = ProfilesPanelSelectedName
 	if not name then return end
-	ShowProfileConfirmation("Delete the saved profile '" .. name .. "'? This will not change any character's Healium button setup.", function()
+	ShowProfileConfirmation("Delete the saved button profile '" .. name .. "'? This will not change any character's Healium button setup.", function()
 		GetClassProfiles()[name] = nil
 		ProfilesPanelSelectedName = nil
 		SetProfilesPanelStatus("Deleted '" .. name .. "'.")
@@ -258,14 +267,14 @@ end
 local function CreateProfilesPanel(parentCategory)
 	local panel = CreateFrame("Frame", nil, UIParent)
 	ProfilesPanel = panel
-	panel.name = "Profiles"
+	panel.name = "Button Profiles"
 
 	local category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, panel.name)
 	Settings.RegisterAddOnCategory(category)
 
 	local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	title:SetPoint("TOPLEFT", 20, -20)
-	title:SetText("Healium Profiles")
+	title:SetText("Healium Button Profiles")
 
 	local _, class = UnitClass("player")
 	local classIcon = CreateFrame("Frame", nil, panel)
@@ -285,7 +294,7 @@ local function CreateProfilesPanel(parentCategory)
 	description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
 	description:SetWidth(500)
 	description:SetJustifyH("LEFT")
-	description:SetText("Profiles are saved copies of your Healium button setup. They can be reused by this character and by other characters of the same class. Saved profiles do not change when you edit your Healium buttons. To update a saved profile, select it and click Overwrite Profile.")
+	description:SetText("Button profiles are saved copies of your Healium button setup. They can be reused by this character and by other characters of the same class. Button profiles do not include frame positions, visibility, or scale. To update one, select it and click Overwrite Button Profile.")
 
 	local listFrame = CreateFrame("Frame", nil, panel, BackdropTemplateMixin and "BackdropTemplate")
 	listFrame:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -20)
@@ -302,7 +311,7 @@ local function CreateProfilesPanel(parentCategory)
 
 	panel.emptyText = listFrame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
 	panel.emptyText:SetPoint("CENTER")
-	panel.emptyText:SetText("No saved profiles for this class.")
+	panel.emptyText:SetText("No saved button profiles for this class.")
 
 	panel.scrollFrame = CreateFrame("ScrollFrame", nil, listFrame, "FauxScrollFrameTemplate")
 	panel.scrollFrame:SetPoint("TOPLEFT", 4, -4)
@@ -329,42 +338,292 @@ local function CreateProfilesPanel(parentCategory)
 
 	local addButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 	addButton:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -15)
-	addButton:SetSize(145, 24)
-	addButton:SetText("Add New Profile...")
+	addButton:SetSize(190, 24)
+	addButton:SetText("Add New Button Profile...")
 	addButton:SetScript("OnClick", AddNewProfile)
 
 	ProfilesPanelOverwriteButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 	ProfilesPanelOverwriteButton:SetPoint("LEFT", addButton, "RIGHT", 8, 0)
-	ProfilesPanelOverwriteButton:SetSize(145, 24)
-	ProfilesPanelOverwriteButton:SetText("Overwrite Profile")
+	ProfilesPanelOverwriteButton:SetSize(190, 24)
+	ProfilesPanelOverwriteButton:SetText("Overwrite Button Profile")
 	ProfilesPanelOverwriteButton:SetScript("OnClick", OverwriteProfile)
 
 	ProfilesPanelLoadButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 	ProfilesPanelLoadButton:SetPoint("TOPLEFT", addButton, "BOTTOMLEFT", 0, -8)
-	ProfilesPanelLoadButton:SetSize(145, 24)
-	ProfilesPanelLoadButton:SetText("Load Profile")
+	ProfilesPanelLoadButton:SetSize(170, 24)
+	ProfilesPanelLoadButton:SetText("Load Button Profile")
 	ProfilesPanelLoadButton:SetScript("OnClick", LoadProfile)
 
 	ProfilesPanelRenameButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 	ProfilesPanelRenameButton:SetPoint("LEFT", ProfilesPanelLoadButton, "RIGHT", 8, 0)
-	ProfilesPanelRenameButton:SetSize(120, 24)
-	ProfilesPanelRenameButton:SetText("Rename Profile")
+	ProfilesPanelRenameButton:SetSize(170, 24)
+	ProfilesPanelRenameButton:SetText("Rename Button Profile")
 	ProfilesPanelRenameButton:SetScript("OnClick", RenameProfile)
 
 	ProfilesPanelDeleteButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-	ProfilesPanelDeleteButton:SetPoint("LEFT", ProfilesPanelRenameButton, "RIGHT", 8, 0)
-	ProfilesPanelDeleteButton:SetSize(120, 24)
-	ProfilesPanelDeleteButton:SetText("Delete Profile")
+	ProfilesPanelDeleteButton:SetPoint("TOPLEFT", ProfilesPanelLoadButton, "BOTTOMLEFT", 0, -8)
+	ProfilesPanelDeleteButton:SetSize(170, 24)
+	ProfilesPanelDeleteButton:SetText("Delete Button Profile")
 	ProfilesPanelDeleteButton:SetScript("OnClick", DeleteProfile)
 
 	ProfilesPanelStatus = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	ProfilesPanelStatus:SetPoint("TOPLEFT", ProfilesPanelLoadButton, "BOTTOMLEFT", 0, -15)
+	ProfilesPanelStatus:SetPoint("TOPLEFT", ProfilesPanelDeleteButton, "BOTTOMLEFT", 0, -15)
 	ProfilesPanelStatus:SetWidth(600)
 	ProfilesPanelStatus:SetJustifyH("LEFT")
 	ProfilesPanelStatus:SetTextColor(0.4, 1, 0.4)
 
 	panel:SetScript("OnShow", RefreshProfilesPanel)
 	RefreshProfilesPanel()
+end
+
+local function GetFrameLayouts()
+	HealiumGlobal.FrameLayouts = HealiumGlobal.FrameLayouts or {}
+	return HealiumGlobal.FrameLayouts
+end
+
+local function FindFrameLayoutName(name, ignoredName)
+	local wanted = string.lower(name)
+	for existingName in pairs(GetFrameLayouts()) do
+		if existingName ~= ignoredName and string.lower(existingName) == wanted then
+			return existingName
+		end
+	end
+end
+
+local function NormalizeFrameLayoutName(name)
+	name = strtrim(name or "")
+	if name == "" then
+		Healium_Warn("Enter a frame layout name.")
+		return
+	end
+	return name
+end
+
+local function SetFrameLayoutsPanelStatus(message)
+	if FrameLayoutsPanelStatus then
+		FrameLayoutsPanelStatus:SetText(message or "")
+	end
+end
+
+local function RefreshFrameLayoutsPanel()
+	if not FrameLayoutsPanel then return end
+
+	local names = {}
+	for name in pairs(GetFrameLayouts()) do
+		table.insert(names, name)
+	end
+	table.sort(names, function(left, right)
+		return string.lower(left) < string.lower(right)
+	end)
+
+	if FrameLayoutsPanelSelectedName and not GetFrameLayouts()[FrameLayoutsPanelSelectedName] then
+		FrameLayoutsPanelSelectedName = nil
+	end
+
+	FauxScrollFrame_Update(FrameLayoutsPanel.scrollFrame, #names, #FrameLayoutsPanelRows, 26)
+	local offset = FauxScrollFrame_GetOffset(FrameLayoutsPanel.scrollFrame)
+	for index, row in ipairs(FrameLayoutsPanelRows) do
+		local name = names[index + offset]
+		if name then
+			row.frameLayoutName = name
+			row:SetText(name)
+			row:Show()
+			if name == FrameLayoutsPanelSelectedName then
+				row:LockHighlight()
+			else
+				row:UnlockHighlight()
+			end
+		else
+			row.frameLayoutName = nil
+			row:Hide()
+		end
+	end
+
+	FrameLayoutsPanel.emptyText:SetShown(#names == 0)
+	local hasSelection = FrameLayoutsPanelSelectedName ~= nil
+	FrameLayoutsPanelOverwriteButton:SetEnabled(hasSelection)
+	FrameLayoutsPanelLoadButton:SetEnabled(hasSelection)
+	FrameLayoutsPanelRenameButton:SetEnabled(hasSelection)
+	FrameLayoutsPanelDeleteButton:SetEnabled(hasSelection)
+end
+
+local function SaveNewFrameLayout()
+	ShowProfileNameDialog("Name the new frame layout:", "", function(name)
+		name = NormalizeFrameLayoutName(name)
+		if not name then return end
+		local existingName = FindFrameLayoutName(name)
+		if existingName then
+			ShowProfileOverwriteConfirmation("A frame layout named '" .. existingName .. "' already exists. Replace it with your current frame layout?", function()
+				GetFrameLayouts()[existingName] = Healium_CaptureFrameLayout()
+				FrameLayoutsPanelSelectedName = existingName
+				SetFrameLayoutsPanelStatus("Overwrote '" .. existingName .. "'.")
+				RefreshFrameLayoutsPanel()
+			end)
+			return
+		end
+		GetFrameLayouts()[name] = Healium_CaptureFrameLayout()
+		FrameLayoutsPanelSelectedName = name
+		SetFrameLayoutsPanelStatus("Added '" .. name .. "' from your current frame layout.")
+		RefreshFrameLayoutsPanel()
+	end)
+end
+
+local function OverwriteFrameLayout()
+	local name = FrameLayoutsPanelSelectedName
+	if not name then return end
+	ShowProfileConfirmation("Replace '" .. name .. "' with your current frame layout?", function()
+		GetFrameLayouts()[name] = Healium_CaptureFrameLayout()
+		SetFrameLayoutsPanelStatus("Overwrote '" .. name .. "'.")
+		RefreshFrameLayoutsPanel()
+	end)
+end
+
+local function LoadFrameLayout()
+	local name = FrameLayoutsPanelSelectedName
+	local layout = name and GetFrameLayouts()[name]
+	if not layout then return end
+	if InCombatLockdown() then
+		Healium_Warn("Frame layouts cannot be loaded during combat.")
+		return
+	end
+	ShowProfileConfirmation("Load the frame layout '" .. name .. "'? This will change frame positions, visibility, and scale.", function()
+		if InCombatLockdown() then
+			Healium_Warn("Frame layouts cannot be loaded during combat.")
+			return
+		end
+		if Healium_ApplyFrameLayout(layout) then
+			Healium_Update_ConfigPanel()
+			SetFrameLayoutsPanelStatus("Loaded '" .. name .. "'.")
+		end
+	end)
+end
+
+local function RenameFrameLayout()
+	local oldName = FrameLayoutsPanelSelectedName
+	if not oldName then return end
+	ShowProfileNameDialog("Rename the selected frame layout:", oldName, function(newName)
+		newName = NormalizeFrameLayoutName(newName)
+		if not newName or newName == oldName then return end
+		if FindFrameLayoutName(newName, oldName) then
+			Healium_Warn("A frame layout named '" .. newName .. "' already exists.")
+			return
+		end
+		local layouts = GetFrameLayouts()
+		layouts[newName] = layouts[oldName]
+		layouts[oldName] = nil
+		FrameLayoutsPanelSelectedName = newName
+		SetFrameLayoutsPanelStatus("Renamed '" .. oldName .. "' to '" .. newName .. "'.")
+		RefreshFrameLayoutsPanel()
+	end)
+end
+
+local function DeleteFrameLayout()
+	local name = FrameLayoutsPanelSelectedName
+	if not name then return end
+	ShowProfileConfirmation("Delete the saved frame layout '" .. name .. "'? This will not move or hide any frames.", function()
+		GetFrameLayouts()[name] = nil
+		FrameLayoutsPanelSelectedName = nil
+		SetFrameLayoutsPanelStatus("Deleted '" .. name .. "'.")
+		RefreshFrameLayoutsPanel()
+	end)
+end
+
+local function CreateFrameLayoutsPanel(parentCategory)
+	local panel = CreateFrame("Frame", nil, UIParent)
+	FrameLayoutsPanel = panel
+	panel.name = "Frame Layouts"
+
+	local category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, panel, panel.name)
+	Settings.RegisterAddOnCategory(category)
+
+	local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	title:SetPoint("TOPLEFT", 20, -20)
+	title:SetText("Healium Frame Layouts")
+
+	local description = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
+	description:SetWidth(600)
+	description:SetJustifyH("LEFT")
+	description:SetText("Frame layouts save the positions and visibility of all Healium frames plus their overall scale. Saved frame layouts are available for use on any of your characters and do not change your button setup. To update one, select it and click Overwrite Frame Layout. Layouts can only be loaded outside combat.")
+
+	local listFrame = CreateFrame("Frame", nil, panel, BackdropTemplateMixin and "BackdropTemplate")
+	listFrame:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -20)
+	listFrame:SetSize(420, 280)
+	if listFrame.SetBackdrop then
+		listFrame:SetBackdrop({
+			bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+			edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+			edgeSize = 12,
+			insets = { left = 3, right = 3, top = 3, bottom = 3 },
+		})
+		listFrame:SetBackdropColor(0, 0, 0, 0.35)
+	end
+
+	panel.emptyText = listFrame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+	panel.emptyText:SetPoint("CENTER")
+	panel.emptyText:SetText("No saved frame layouts.")
+
+	panel.scrollFrame = CreateFrame("ScrollFrame", nil, listFrame, "FauxScrollFrameTemplate")
+	panel.scrollFrame:SetPoint("TOPLEFT", 4, -4)
+	panel.scrollFrame:SetPoint("BOTTOMRIGHT", -26, 4)
+	panel.scrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+		FauxScrollFrame_OnVerticalScroll(self, offset, 26, RefreshFrameLayoutsPanel)
+	end)
+
+	for index = 1, 10 do
+		local row = CreateFrame("Button", nil, listFrame)
+		row:SetPoint("TOPLEFT", 8, -8 - ((index - 1) * 26))
+		row:SetSize(380, 24)
+		row:SetHighlightTexture("Interface/QuestFrame/UI-QuestTitleHighlight", "ADD")
+		local rowText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		rowText:SetPoint("LEFT", 8, 0)
+		row:SetFontString(rowText)
+		row:SetScript("OnClick", function(self)
+			FrameLayoutsPanelSelectedName = self.frameLayoutName
+			SetFrameLayoutsPanelStatus("")
+			RefreshFrameLayoutsPanel()
+		end)
+		FrameLayoutsPanelRows[index] = row
+	end
+
+	local addButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	addButton:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -15)
+	addButton:SetSize(190, 24)
+	addButton:SetText("Add New Frame Layout...")
+	addButton:SetScript("OnClick", SaveNewFrameLayout)
+
+	FrameLayoutsPanelOverwriteButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	FrameLayoutsPanelOverwriteButton:SetPoint("LEFT", addButton, "RIGHT", 8, 0)
+	FrameLayoutsPanelOverwriteButton:SetSize(190, 24)
+	FrameLayoutsPanelOverwriteButton:SetText("Overwrite Frame Layout")
+	FrameLayoutsPanelOverwriteButton:SetScript("OnClick", OverwriteFrameLayout)
+
+	FrameLayoutsPanelLoadButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	FrameLayoutsPanelLoadButton:SetPoint("TOPLEFT", addButton, "BOTTOMLEFT", 0, -8)
+	FrameLayoutsPanelLoadButton:SetSize(170, 24)
+	FrameLayoutsPanelLoadButton:SetText("Load Frame Layout")
+	FrameLayoutsPanelLoadButton:SetScript("OnClick", LoadFrameLayout)
+
+	FrameLayoutsPanelRenameButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	FrameLayoutsPanelRenameButton:SetPoint("LEFT", FrameLayoutsPanelLoadButton, "RIGHT", 8, 0)
+	FrameLayoutsPanelRenameButton:SetSize(170, 24)
+	FrameLayoutsPanelRenameButton:SetText("Rename Frame Layout")
+	FrameLayoutsPanelRenameButton:SetScript("OnClick", RenameFrameLayout)
+
+	FrameLayoutsPanelDeleteButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	FrameLayoutsPanelDeleteButton:SetPoint("TOPLEFT", FrameLayoutsPanelLoadButton, "BOTTOMLEFT", 0, -8)
+	FrameLayoutsPanelDeleteButton:SetSize(170, 24)
+	FrameLayoutsPanelDeleteButton:SetText("Delete Frame Layout")
+	FrameLayoutsPanelDeleteButton:SetScript("OnClick", DeleteFrameLayout)
+
+	FrameLayoutsPanelStatus = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	FrameLayoutsPanelStatus:SetPoint("TOPLEFT", FrameLayoutsPanelDeleteButton, "BOTTOMLEFT", 0, -15)
+	FrameLayoutsPanelStatus:SetWidth(600)
+	FrameLayoutsPanelStatus:SetJustifyH("LEFT")
+	FrameLayoutsPanelStatus:SetTextColor(0.4, 1, 0.4)
+
+	panel:SetScript("OnShow", RefreshFrameLayoutsPanel)
+	RefreshFrameLayoutsPanel()
 end
 
 local function PartyFrameOrderDropDown_OnClick(dropdownbutton)
@@ -682,6 +941,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	--Healium_ConfigPanel_CategoryID = Healium_ConfigPanel_Category:GetID()
 	Settings.RegisterAddOnCategory(Healium_ConfigPanel_Category);
 	CreateProfilesPanel(Healium_ConfigPanel_Category)
+	CreateFrameLayoutsPanel(Healium_ConfigPanel_Category)
 
 
 	local scrollframe = CreateFrame("ScrollFrame", "HealiumPanelScrollFrame", panel, "UIPanelScrollFrameTemplate") 

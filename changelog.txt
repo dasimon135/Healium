@@ -1,3 +1,7 @@
+3.5.0
+* Retail: Added a Frame Layouts subcategory to Healium’s options, allowing you to save and recall frame positions, visibility, and scale on any character.
+* Retail: Renamed Profiles subcategory to Button Profiles to more clearly indicate what it does.
+
 3.4.0
 * Retail: Added a Profiles subcategory to Healium’s options, allowing players to save and reuse class-specific button setups across characters of the same class.
 * Retail: Greatly improved the look of the minimap button.

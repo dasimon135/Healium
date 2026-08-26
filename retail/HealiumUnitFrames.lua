@@ -1214,6 +1214,80 @@ function Healium_SetScale()
 	end	
 end
 
+local function CaptureFramePosition(frame)
+	local point, _, relativePoint, x, y = frame:GetPoint(1)
+	if not point then return end
+
+	return {
+		point = point,
+		relativePoint = relativePoint or point,
+		x = x or 0,
+		y = y or 0,
+	}
+end
+
+function Healium_CaptureFrameLayout()
+	local positions = {}
+	for _, frame in ipairs(UnitFrames) do
+		local position = CaptureFramePosition(frame)
+		if position then
+			positions[frame:GetName()] = position
+		end
+	end
+
+	return {
+		Scale = Healium.Scale,
+		Visibility = {
+			Party = Healium.ShowPartyFrame and true or false,
+			Pets = Healium.ShowPetsFrame and true or false,
+			Me = Healium.ShowMeFrame and true or false,
+			Friends = Healium.ShowFriendsFrame and true or false,
+			Damagers = Healium.ShowDamagersFrame and true or false,
+			Healers = Healium.ShowHealersFrame and true or false,
+			Tanks = Healium.ShowTanksFrame and true or false,
+			Target = Healium.ShowTargetFrame and true or false,
+			Focus = Healium.ShowFocusFrame and true or false,
+			Groups = Healium_DeepCopy(Healium.ShowGroupFrames or {}),
+		},
+		Positions = positions,
+	}
+end
+
+function Healium_ApplyFrameLayout(layout)
+	if not layout or InCombatLockdown() then return false end
+
+	if type(layout.Scale) == "number" then
+		Healium.Scale = layout.Scale
+		Healium_SetScale()
+	end
+
+	for _, frame in ipairs(UnitFrames) do
+		local position = layout.Positions and layout.Positions[frame:GetName()]
+		if position and position.point and position.relativePoint then
+			frame:SetUserPlaced(false)
+			frame:ClearAllPoints()
+			frame:SetPoint(position.point, UIParent, position.relativePoint, position.x or 0, position.y or 0)
+			frame:SetUserPlaced(true)
+		end
+	end
+
+	local visibility = layout.Visibility or {}
+	Healium_ShowHidePartyFrame(visibility.Party and true or false)
+	Healium_ShowHidePetsFrame(visibility.Pets and true or false)
+	Healium_ShowHideMeFrame(visibility.Me and true or false)
+	Healium_ShowHideFriendsFrame(visibility.Friends and true or false)
+	Healium_ShowHideDamagersFrame(visibility.Damagers and true or false)
+	Healium_ShowHideHealersFrame(visibility.Healers and true or false)
+	Healium_ShowHideTanksFrame(visibility.Tanks and true or false)
+	Healium_ShowHideTargetFrame(visibility.Target and true or false)
+	Healium_ShowHideFocusFrame(visibility.Focus and true or false)
+	for group = 1, 8 do
+		Healium_ShowHideGroupFrame(group, visibility.Groups and visibility.Groups[group] and true or false)
+	end
+
+	return true
+end
+
 function Healium_MakeRankedSpellName(spellName, spellSubtext)
 	local rankedSpellName
 	
