@@ -1,3 +1,13 @@
+3.5.1
+* Retail and Classic: Range checks no longer call IsSpellUsable and SpellHasRange once per button per tick.  Both answers depend only on the button column, so they are now computed once and shared by every unit frame.
+* Retail and Classic: The spellbook is indexed once instead of being rescanned from the start for every spell, and repeated SPELLS_CHANGED events are coalesced into a single update instead of rebuilding every button twice each time.
+* Retail: The Aura Container buff filter and cure filters are built once per configuration change instead of once per unit frame.
+* Retail: Loading a button profile now warns if the profile uses a macro that this character does not have.
+* Classic: Fixed the debuff warning system being turned off whenever Show Buffs was unchecked.
+* Classic: Fixed an error that could happen when a debuff had an unrecognised dispel type.
+* Classic: Buff matching no longer loops over every button for every buff of every unit.
+* Retail and Classic: Fixed the list of shown frames growing without ever being cleaned up.
+
 3.5.0
 * Retail: Added a Frame Layouts subcategory to Healium’s options, allowing you to save and recall frame positions, visibility, and scale on any character.
 * Retail: Renamed Profiles subcategory to Button Profiles to more clearly indicate what it does.

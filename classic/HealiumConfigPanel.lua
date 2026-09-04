@@ -162,6 +162,7 @@ end
 function Healium_SetButtonCount(count)
 	HealiumMaxButtonSlider.Text:SetText("Show |cFFFFFFFF"..count.. "|r Buttons")
 	Healium_GetProfile().ButtonCount = count
+	if Healium_InvalidateArmedBuffNames then Healium_InvalidateArmedBuffNames() end
 	Healium_UpdateButtonVisibility()
 end
 

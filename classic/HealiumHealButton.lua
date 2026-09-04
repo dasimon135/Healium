@@ -76,6 +76,7 @@ function Healium_HealButton_OnEvent(frame, event)
 	if (not frame.id) then return 0 end   
 	
 	if event == "SPELL_UPDATE_USABLE" then
+		Healium_InvalidateUsableCache()
 		Healium_RangeCheckButton(frame)
 	end
 end

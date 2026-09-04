@@ -25,7 +25,7 @@ local MaxRangeCheckPeriod = 2  -- 2 = .5Hz
 local DefaultRangeCheckPeriod = .5
 local DefaultButtonCount = 5
 
---local LoadedTime = 0
+local LoadedTime = 0
 local stable
 
 -- Global Constants
@@ -416,7 +416,7 @@ function Healium_UpdateUnitMana(unitName, NamePlate)
 	local Mana = UnitPower(unitName, Enum.PowerType.Mana)
 	local MaxMana = UnitPowerMax(unitName, Enum.PowerType.Mana)
 
-	Healium_DebugPrint("Mana: ", Mana, " MaxMana: ", MaxMana)
+	if Healium_Debug then Healium_DebugPrint("Mana: ", Mana, " MaxMana: ", MaxMana) end
 	
 	if UnitIsDeadOrGhost(unitName) then
 		Mana = 0
@@ -439,7 +439,7 @@ function Healium_UpdateUnitMana(unitName, NamePlate)
 	if grayBar then
 		-- unit can't have mana so set to gray mana bar
 		if (NamePlate.showingMana) then
-			Healium_DebugPrint("Graying out manabar for " , unitName)
+			if Healium_Debug then Healium_DebugPrint("Graying out manabar for " , unitName) end
 			NamePlate.ManaBar:SetStatusBarColor( .5, .5, .5 )
 			NamePlate.ManaBar:SetMinMaxValues(0,1)
 			NamePlate.ManaBar:SetValue(1)
@@ -447,14 +447,14 @@ function Healium_UpdateUnitMana(unitName, NamePlate)
 		end
 	else
 		if not NamePlate.showingMana then
-			Healium_DebugPrint("Configuring manabar for " , unitName)
+			if Healium_Debug then Healium_DebugPrint("Configuring manabar for " , unitName) end
 			local powerColor = PowerBarColor["MANA"];
 			NamePlate.ManaBar:SetStatusBarColor( powerColor.r, powerColor.g, powerColor.b )
 			NamePlate.showingMana = true				
 		end
 		NamePlate.ManaBar:SetMinMaxValues(0,MaxMana)
 		NamePlate.ManaBar:SetValue(Mana)
-		Healium_DebugPrint("Set ManaBar to: ", Mana, " MaxMana: ", MaxMana)		
+		if Healium_Debug then Healium_DebugPrint("Set ManaBar to: ", Mana, " MaxMana: ", MaxMana) end
 	end
 end
 
@@ -499,7 +499,8 @@ function Healium_UpdateManaBarVisibility(frame)
 end
 
 function Healium_UpdateShowBuffs()
-	for _, k in ipairs(Healium_ShownFrames) do
+	-- Healium_ShownFrames is keyed by frame, not an array.
+	for k in pairs(Healium_ShownFrames) do
 		if (k.TargetUnit) then
 			Healium_UpdateUnitBuffs(k.TargetUnit, k)
 		end
@@ -690,6 +691,61 @@ local function GetSpellCount()
 	return offset + numSpells
 end
 
+-- Spellbook slot lookups used to rescan the whole spellbook once per spell,
+-- which cost thousands of API calls on every SPELLS_CHANGED.  The book is now
+-- indexed once into SpellSlotCache and reused until the cache is invalidated.
+local SpellSlotCache = nil
+
+local function GetSpellBookName(index)
+	if Healium_IsRetail then
+		return C_SpellBook.GetSpellBookItemName(index, Enum.SpellBookSpellBank.Player)
+	end
+
+	return GetSpellBookItemName(index, BOOKTYPE_SPELL)
+end
+
+local function IsFutureSpellSlot(index)
+	if Healium_IsRetail then
+		local info = C_SpellBook.GetSpellBookItemInfo(index, Enum.SpellBookSpellBank.Player)
+		return info and (info.itemType == Enum.SpellBookItemType.FutureSpell) or false
+	end
+
+	return GetSpellBookItemInfo(index, BOOKTYPE_SPELL) == "FUTURESPELL"
+end
+
+local function BuildSpellSlotCache()
+	local cache = {}
+	local count = GetSpellCount()
+
+	for i = 1, count do
+		local spellName, spellSubName = GetSpellBookName(i)
+
+		if not spellName then
+			break
+		end
+
+		local entries = cache[spellName]
+
+		if not entries then
+			entries = {}
+			cache[spellName] = entries
+		end
+
+		table.insert(entries, { slot = i, subtext = spellSubName })
+
+		if (i > 300) then
+			break
+		end
+	end
+
+	return cache
+end
+
+-- Must be called whenever the spellbook may have changed.
+function Healium_InvalidateSpellSlotCache()
+	SpellSlotCache = nil
+end
+
 local function GetSpellSlotID(spell, subtext)
 	if spell == nil then return end
 	--new check in MoP.
@@ -701,56 +757,45 @@ local function GetSpellSlotID(spell, subtext)
 		return nil
 	end
 
-	Healium_DebugPrint("GetSpellSlotID: ", spell);	
-	local count = GetSpellCount()
-	
-	for i = 1, count do
-        local spellName, spellSubName 
-		if Healium_IsRetail then 
-			spellName, spellSubName = C_SpellBook.GetSpellBookItemName(i, Enum.SpellBookSpellBank.Player)
-		else
-			spellName, spellSubName = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-		end
-        if not spellName then
-            break
-        end
-        if (spellName == spell) then
-			local slotType
-			if Healium_IsRetail then
-				local info = C_SpellBook.GetSpellBookItemInfo(i, Enum.SpellBookSpellBank.Player)
-				--subtext = info.subName
-				if (info.itemType == Enum.SpellBookItemType.FutureSpell) then
-					break
-				end
-			else
-				slotType = GetSpellBookItemInfo(i, BOOKTYPE_SPELL)
-			end
-			 
-			if (slotType == "FUTURESPELL") then 
-				break
-			end
+	Healium_DebugPrint("GetSpellSlotID: ", spell);
 
-			Healium_DebugPrint("spell: ", spellName, "subtext:", spellSubName);
-			
-			if not subtext then
-				return i
-			end
-			
-			if spellSubName == subtext then
-				return i
-			end
-        end
-		
-        if (i > 300) then
-            break
-        end
-    end
-	
-    return nil
+	if not SpellSlotCache then
+		SpellSlotCache = BuildSpellSlotCache()
+	end
+
+	local entries = SpellSlotCache[spell]
+
+	if not entries then
+		return nil
+	end
+
+	for _, entry in ipairs(entries) do
+		-- A disabled/future rank ends the search, exactly as the original
+		-- spellbook scan did when it ran into one.
+		if IsFutureSpellSlot(entry.slot) then
+			return nil
+		end
+
+		Healium_DebugPrint("spell: ", spell, "subtext:", entry.subtext);
+
+		if not subtext then
+			return entry.slot
+		end
+
+		if entry.subtext == subtext then
+			return entry.slot
+		end
+	end
+
+	return nil
 end
 
 -- Loops through Healium_Spell.Name[] and updates it's corresponding .ID[] and .Icon[]
 -- Warning UpdateSpells() is a global function from Blizzard. 
+-- This does not refresh the buttons: callers must follow it with
+-- Healium_UpdateButtonAttributes() or Healium_UpdateButtons().  It used to do
+-- that itself, which made SPELLS_CHANGED rebuild every button attribute (and
+-- every retail Aura Container) twice in a row.
 local function Healium_UpdateSpells()
 	for k, v in ipairs (Healium_Spell.Name) do
 		Healium_Spell.ID[k] = GetSpellSlotID(Healium_Spell.Name[k])
@@ -761,14 +806,37 @@ local function Healium_UpdateSpells()
 				Healium_Spell.Icon[k] = GetSpellTexture(Healium_Spell.ID[k], BOOKTYPE_SPELL)
 			end
 			Healium_DebugPrint("Found ID for Spell Name: " .. Healium_Spell.Name[k] .. " ID:" .. Healium_Spell.ID[k])
-			Healium_DebugPrint("Texture: " .. Healium_Spell.Icon[k])							
+			Healium_DebugPrint("Texture: " .. Healium_Spell.Icon[k])
 		else 
-			Healium_DebugPrint("Could not find ID, Spell Name: ", Healium_Spell.Name[k])							
+			Healium_DebugPrint("Could not find ID, Spell Name: ", Healium_Spell.Name[k])
 			Healium_Spell.Icon[k] = nil
 		end
 	end 
-	
-	Healium_UpdateButtonAttributes()
+end
+
+-- SPELLS_CHANGED can fire many times in a row (login, talent swaps, procs).
+-- Rebuilding every spell slot and every button on each one is wasted work, so
+-- the updates are coalesced into a single pass.
+local SpellsChangedPending = false
+
+local function DoSpellsChangedUpdate()
+	SpellsChangedPending = false
+
+	if HealiumFrame and HealiumFrame.Respecing then return end
+
+	Healium_InitSpells(HealiumClass, HealiumRace) -- I have observed swapping around talents not sending PLAYER_TALENT_UPDATE, but instead sending SPELLS_CHANGED, so we need to call this here to handle the case the talent effects cures
+	Healium_InvalidateSpellSlotCache()
+	Healium_UpdateSpells()
+	Healium_UpdateButtons()
+end
+
+local function QueueSpellsChangedUpdate()
+	Healium_InvalidateSpellSlotCache()
+
+	if SpellsChangedPending then return end
+
+	SpellsChangedPending = true
+	C_Timer.After(0.2, DoSpellsChangedUpdate)
 end
 
 -- does special checks for specific buffs/debuffs
@@ -1043,6 +1111,8 @@ function Healium_UpdateButtonAttributes()
 		end
 	end
 	
+	Healium_InvalidateRangeCheckCache()
+	if Healium_InvalidateArmedBuffNames then Healium_InvalidateArmedBuffNames() end
 	Healium_UpdateCures()
 end
 
@@ -1086,55 +1156,79 @@ function Healium_UpdateButtons()
 	Healium_UpdateButtonIcons()
 end
 
+-- IsSpellUsable() and SpellHasRange() depend only on the button column, not
+-- on the unit, but the range check used to call them once per button per
+-- tick (15 buttons x 40 raid frames).  They are now computed once per column
+-- and shared by every unit frame.
+local ColumnHasRange = {}
+local ColumnUsableTime = {}
+local ColumnNoMana = {}
+
+-- Clears the per-tick usable/mana answers only.  Called on SPELL_UPDATE_USABLE.
+function Healium_InvalidateUsableCache()
+	ColumnUsableTime = {}
+	ColumnNoMana = {}
+end
+
+-- Clears everything.  Called whenever the button configuration changes.
+function Healium_InvalidateRangeCheckCache()
+	ColumnHasRange = {}
+	Healium_InvalidateUsableCache()
+end
+
 function Healium_RangeCheckButton(button)
 	local Profile = Healium_GetProfile()
-	
-	if (Profile.SpellTypes[button.index] == nil) or (Profile.SpellTypes[button.index] == Healium_Type_Spell) then 
+	local index = button.index
+
+	if (Profile.SpellTypes[index] == nil) or (Profile.SpellTypes[index] == Healium_Type_Spell) then 
 		if (button.id) then
-			local isUsable
-			local noMana
-			
-			if Healium_IsRetail then
-				isUsable, noMana = C_Spell.IsSpellUsable(Profile.SpellNames[button.index])
-				--Healium_DebugPrint(Profile.SpellNames[button.index] .. "usable: " .. tostring(isUsable) .. " noMana: " .. tostring(noMana))
-			else
-				isUsable, noMana = IsUsableSpell(button.id, BOOKTYPE_SPELL)
+			local now = GetTime()
+
+			if ColumnUsableTime[index] == nil or (now - ColumnUsableTime[index]) >= Healium.RangeCheckPeriod then
+				local noMana
+
+				if Healium_IsRetail then
+					_, noMana = C_Spell.IsSpellUsable(Profile.SpellNames[index])
+				else
+					_, noMana = IsUsableSpell(button.id, BOOKTYPE_SPELL)
+				end
+
+				ColumnUsableTime[index] = now
+				ColumnNoMana[index] = noMana and true or false
 			end
 
-			if noMana then
+			if ColumnNoMana[index] then
 				button.icon:SetVertexColor(0.5, 0.5, 1.0)
 			else
 				if not button.icon.disabled then 
 					button.icon:SetVertexColor(1.0, 1.0, 1.0)
 				end
 			end
-			
-			local inRange 
+
+			local inRange
+
 			if Healium_IsRetail then
-				inRange = C_Spell.IsSpellInRange(Profile.SpellNames[button.index], button:GetParent().TargetUnit)
-				--Healium_DebugPrint(Profile.SpellNames[button.index] .. " target: " .. button:GetParent().TargetUnit .. " inRange: " ..  tostring(inRange))
+				inRange = C_Spell.IsSpellInRange(Profile.SpellNames[index], button:GetParent().TargetUnit)
 			else
 				inRange = IsSpellInRange(button.id, BOOKTYPE_SPELL, button:GetParent().TargetUnit)
 			end
-			
-			local hasRange 
-			if Healium_IsRetail then 
-				hasRange = C_Spell.SpellHasRange(Profile.SpellNames[button.index])
-				--Healium_DebugPrint(Profile.SpellNames[button.index] .. " hasRange: " .. tostring(hasRange))				
-			else
-				hasRange = SpellHasRange(button.id, BOOKTYPE_SPELL)
+
+			if ColumnHasRange[index] == nil then
+				if Healium_IsRetail then
+					ColumnHasRange[index] = C_Spell.SpellHasRange(Profile.SpellNames[index]) and true or false
+				else
+					ColumnHasRange[index] = SpellHasRange(button.id, BOOKTYPE_SPELL) and true or false
+				end
 			end
-				
-			if hasRange then
+
+			if ColumnHasRange[index] then
 				if (inRange == false) or (inRange == 0) or (inRange == nil) then
-					--Healium_DebugPrint("REDDING " .. Profile.SpellNames[button.index] .. " for " .. button:GetParent().TargetUnit)				
 					button.icon:SetVertexColor(1.0, 0.3, 0.3)
 				end
 			end
 		end
 	end
 
-	
 	-- todo range check macros, and items
 end
 
@@ -1250,12 +1344,17 @@ function Healium_OnEvent(frame, event, ...)
 	
 	if event == "UNIT_AURA" then
 		if Healium_Units[arg1] then
-			for _,v  in pairs(Healium_Units[arg1]) do
-				if Healium.ShowBuffs then 
+			-- Healium_UpdateUnitBuffs also drives the dispel warning system, so it
+			-- has to run whenever either buffs or debuffs are enabled.
+			if Healium.ShowBuffs or Healium.EnableDebufs then
+				for _,v  in pairs(Healium_Units[arg1]) do
 					Healium_UpdateUnitBuffs(arg1, v)
 				end
-				Healium_UpdateSpecialBuffs(arg1)
 			end
+
+			-- Walks Healium_Units[unit] itself, so it must not be called once per
+			-- frame showing that unit.
+			Healium_UpdateSpecialBuffs(arg1)
 		end
 		return
 	end
@@ -1314,6 +1413,7 @@ function Healium_OnEvent(frame, event, ...)
 		-- mainly to reset cures.  
 		Healium_InitSpells(HealiumClass, HealiumRace) 
 
+		Healium_InvalidateSpellSlotCache()
 		Healium_UpdateSpells()
 		Healium_UpdateButtons()
 		Healium_Update_ConfigPanel()
@@ -1323,16 +1423,16 @@ function Healium_OnEvent(frame, event, ...)
 
 	if ((event == "SPELLS_CHANGED") and (not frame.Respecing)) then
 		Healium_DebugPrint("SPELLS_CHANGED")
-		Healium_InitSpells(HealiumClass, HealiumRace) -- I have observed swapping around talents not sending PLAYER_TALENT_UPDATE, but instead sending SPELLS_CHANGED, so we need to call this here to handle the case the talent effects cures	
-		Healium_UpdateSpells()
-		Healium_UpdateButtons()
+		QueueSpellsChangedUpdate()
 	end
 	
 	if ((event == "PLAYER_ENTERING_WORLD") and (not frame.Respecing)) then
 		stable = true
 		Healium_DebugPrint("PLAYER_ENTERING_WORLD")
 		-- Populate the Healium_Spell Table with ID and Icon data.
+		Healium_InvalidateSpellSlotCache()
 		Healium_UpdateSpells()
+		Healium_UpdateButtonAttributes()
 	end
 	
 	if (event == "RAID_TARGET_UPDATE") and Healium.ShowRaidIcons then

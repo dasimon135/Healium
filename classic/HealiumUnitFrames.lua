@@ -39,6 +39,38 @@ local GlimmerOfLight = Healium_GetSpellName(325983) -- Glimmer of Light is a buf
 local Tranquility = Healium_GetSpellName(740) -- Tranquility - HOT from Druid casting Tranquility
 local TemporalBeaconName = Healium_GetSpellName(400735) -- Temporal Beacon
 
+-- The set of buff names that light up a buff icon.  This used to be re-tested
+-- with a loop over every button plus a chain of comparisons for every buff of
+-- every unit; it only changes when the button configuration changes.
+local ArmedBuffNames = nil
+
+function Healium_InvalidateArmedBuffNames()
+	ArmedBuffNames = nil
+end
+
+local function GetArmedBuffNames()
+	if ArmedBuffNames then return ArmedBuffNames end
+
+	local names = {}
+	local Profile = Healium_GetProfile()
+
+	for j = 1, Profile.ButtonCount, 1 do
+		local name = Profile.SpellNames[j]
+		if name then names[name] = true end
+	end
+
+	-- Buffs Healium always shows.  Any of these can be nil on a client where
+	-- the spell does not exist.
+	local special = { RejuvenationGermination, EternalFlame, Atonement, GlimmerOfLight, Tranquility, TemporalBeaconName }
+
+	for i = 1, 6 do
+		if special[i] then names[special[i]] = true end
+	end
+
+	ArmedBuffNames = names
+	return names
+end
+
 -- sounds ids from https://wow.tools/files/#search=&page=1&sort=0&desc=asc
 Healium_Sounds = {
 	{ ["Alliance Bell"] = { fileid = 566564, path = "Sound\\Doodad\\BellTollAlliance.ogg"}},
@@ -97,8 +129,8 @@ function Healium_CreateButtonsForNameplate(frame)
 	local Profile = Healium_GetProfile()
 	
 	for i=1, Healium_MaxButtons, 1 do
-		name = frame:GetName()
-		button = CreateButton(name.."_Heal"..i, frame, x)
+		local name = frame:GetName()
+		local button = CreateButton(name.."_Heal"..i, frame, x)
 		x = x + xSpacing + NamePlateHeight
 
 		button.index = i -- .index is used by drag operation
@@ -496,7 +528,8 @@ function HealiumUnitFrames_Button_OnLoad(frame)
 end
 
 function HealiumUnitFrames_Button_OnShow(frame)
-	table.insert(Healium_ShownFrames, frame)
+	-- Keyed by frame so OnHide can actually remove it again.
+	Healium_ShownFrames[frame] = true
 end	
 
 function HealiumUnitFrames_Button_OnHide(frame)
@@ -974,16 +1007,7 @@ function Healium_UpdateUnitBuffs(unit, frame)
 				local name = aura.name
 				if (aura.sourceUnit == "player") then
 					
-					local armed = false
-					
-					for j=1, Profile.ButtonCount, 1 do
-						if Profile.SpellNames[j] == name or name == RejuvenationGermination or name == EternalFlame or name == Atonement or name == GlimmerOfLight or name == Tranquility or name == TemporalBeaconName then
-							armed = true
-							break
-						end
-					end
-					
-					if armed == true then
+					if GetArmedBuffNames()[name] then
 						local buffFrame = frame.buffs[buffIndex]
 
 						buffFrame:SetID(i)
@@ -992,7 +1016,7 @@ function Healium_UpdateUnitBuffs(unit, frame)
 							local auraInstanceID = FindAuraInstanceID(Auras, aura.spellId)
 							--print("auraInstanceID = ", auraInstanceID)
 							if auraInstanceID then
-								buffFrame.auraInstanceID = aura.auraInstanceID
+								buffFrame.auraInstanceID = auraInstanceID
 							else 
 								buffFrame.auraInstanceID = 0
 							end						
@@ -1045,7 +1069,7 @@ function Healium_UpdateUnitBuffs(unit, frame)
 			--local name, icon, count, debuffType, duration, expirationTime, unitCaster, isStealable, shouldConsolidate, spellId = UnitDebuff(unit, i)
 			local aura = C_UnitAuras.GetDebuffDataByIndex(unit, i, "HARMFUL")
 			
-			if aura == nill then 
+			if aura == nil then 
 				break
 			end
 			
@@ -1063,7 +1087,7 @@ function Healium_UpdateUnitBuffs(unit, frame)
 				if Healium_CanCureDebuff(debuffType) then
 					foundDebuff = true
 					debuffTypes[debuffType] = true
-					local debuffColor = Healium_DebuffTypeColor[debuffType] or Healium_DebuffTypeColor["none"];					
+					local debuffColor = Healium_DebuffTypeColor[debuffType] or Healium_DebuffTypeColor["None"];
 					frame.hasDebuf = true
 					frame.debuffColor = debuffColor
 					
