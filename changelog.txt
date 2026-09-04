@@ -1,23 +1,12 @@
-3.7.0
-* All Classics: Added class-appropriate spell lists to the button configuration menus.
-* Vanilla Classic and Classic BC: Menu selections use the highest learned spell rank; drag-and-drop can assign a specific lower rank.
-* All Classics: Added Button Profiles and Frame Layouts.
-* All Classics: Improved the minimap button appearance.
-* Removed obsolete Wrath and Cataclysm Classic support.
-
-3.6.3 Beta
-* Forever: Added support for separate Primary and Secondary talent-group profiles.
-
-3.6.2 Beta
-* Forever: Reordered the default class spell lists into heals, cures, buffs, and other abilities.
-
-3.6.1 Beta
-* Forever: Added class-appropriate healing, cure, utility, and buff spell lists.
-* Forever: Simplified spell-assignment menus.
-* Forever: Menu selections now track the highest learned rank; drag-and-drop can assign a specific lower rank.
-
-3.6.0 Beta
-* Forever: Added initial support for World of Warcraft: Forever.
+3.5.1
+* Retail and Classic: Range checks no longer call IsSpellUsable and SpellHasRange once per button per tick.  Both answers depend only on the button column, so they are now computed once and shared by every unit frame.
+* Retail and Classic: The spellbook is indexed once instead of being rescanned from the start for every spell, and repeated SPELLS_CHANGED events are coalesced into a single update instead of rebuilding every button twice each time.
+* Retail: The Aura Container buff filter and cure filters are built once per configuration change instead of once per unit frame.
+* Retail: Loading a button profile now warns if the profile uses a macro that this character does not have.
+* Classic: Fixed the debuff warning system being turned off whenever Show Buffs was unchecked.
+* Classic: Fixed an error that could happen when a debuff had an unrecognised dispel type.
+* Classic: Buff matching no longer loops over every button for every buff of every unit.
+* Retail and Classic: Fixed the list of shown frames growing without ever being cleaned up.
 
 3.5.0
 * Retail: Added a Frame Layouts subcategory to Healium’s options, allowing you to save and recall frame positions, visibility, and scale on any character.

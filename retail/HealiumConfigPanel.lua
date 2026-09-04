@@ -220,6 +220,24 @@ local function LoadProfile()
 		end
 		local specialization = GetSpecialization() or 1
 		Healium.Profiles[specialization] = CopyProfile(savedProfile)
+
+		-- Macros are per character: a name saved on another character may not
+		-- exist here, and the button would silently do nothing.
+		local missingMacros
+
+		for i = 1, Healium.Profiles[specialization].ButtonCount or 0 do
+			if Healium.Profiles[specialization].SpellTypes[i] == Healium_Type_Macro then
+				local macroName = Healium.Profiles[specialization].SpellNames[i]
+				if macroName and (GetMacroIndexByName(macroName) or 0) == 0 then
+					missingMacros = missingMacros and (missingMacros .. ", " .. macroName) or macroName
+				end
+			end
+		end
+
+		if missingMacros then
+			Healium_Warn("This character has no macro named: " .. missingMacros)
+		end
+
 		Healium_Update_ConfigPanel()
 		Healium_UpdateButtonIcons()
 		Healium_UpdateButtonAttributes()

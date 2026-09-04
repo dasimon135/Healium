@@ -23,6 +23,7 @@ end
 
 -- These spellIDs are from wowhead
 function Healium_InitSpells(class, race)
+	local CureName
 	Healium_DebugPrint("Healium_InitSpells class = " .. class .. " race = " .. race)
 	
 	-- clear cures
