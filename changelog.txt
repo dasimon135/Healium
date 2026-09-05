@@ -1,4 +1,10 @@
-3.7.2
+3.7.0
+* Retail: New Arena frame, one row per arena opponent (arena1 to arena3), with its own button set per specialization, edited from the new Button Set dropdown on the options panel.  Meant for the spells a priest throws at enemies: Dispel Magic, Silence, Psychic Horror, Mind Control, dots.  Enable it under Show Frames or with /hlm show arena; /hlm arena test points it at your target, focus and yourself outside an arena.
+* Retail: On the Arena frame the Blizzard Aura Container shows an opponent's dispellable buff on the Dispel Magic button and on the health bar, the same way curable debuffs show on friendly frames.  An optional Arena Dispel Audio Warning, under Debuff Warnings, plays the debuff sound when that happens.
+* Retail: Saved class button profiles now carry both button sets.  Text export and import still carry the friendly set only.
+* Retail: The priest spell list gains the targeted hostile spells.  Spells past the twentieth entry of a class list could not be picked from the options dropdowns; they can now.
+
+3.6.0
 * Retail: Button profiles can now be exported to a text string and imported back, from the Button Profiles panel.  Saved profiles live in the account file, so until now a setup could not travel to another account or be shared.  The format is plain text and is parsed field by field: a pasted string is never executed as code.
 * Retail: A dispel audio warning was tried and dropped: 12.1.0 treats the visibility of the Aura Container health bar button as a secret aspect, so hooking it is blocked and raises a Lua error for every unit frame.
 * Retail: Aura Containers are now built one frame after Blizzard assigns the unit, instead of during that call.  A container created while Blizzard's restricted group header code is still on the stack came back forbidden to Healium, which showed up as "debuff Aura Container initialization failed: Attempt to access forbidden object" when someone joined the group.  The warning now names the unit, and every attempt is logged under /hlm debug.

@@ -62,6 +62,8 @@ Frame **positions** are not stored in saved variables — frames use Blizzard's 
 
 `Healium.Profiles[specIndex]` (5 slots) is a set of **parallel arrays** indexed by button number: `SpellNames`, `SpellIcons`, `SpellTypes` (`Healium_Type_Spell` = 0 / `_Macro` = 1 / `_Item` = 2 — note `nil` also means Spell, the table was added in 2.0), `SpellRanks` (spell subtext), `IDs`, plus `ButtonCount` and `PartyFrameOrder`. `Healium_GetProfile()` selects the spec: `GetSpecialization()` on retail, `GetActiveTalentGroup()` on Mists Classic, `1` everywhere else. There is a standing TODO in `Healium.lua` to collapse these arrays into one `Spells` table.
 
+Retail (3.7.0) adds `Healium.HostileProfiles[specIndex]`, the same shape, feeding frames flagged `isHostile` (the Arena frame). Always resolve a button's profile with `Healium_GetProfileForFrame(frame)` / `Healium_GetProfileForButton(button)`, never `Healium_GetProfile()` directly; the config panel edits whichever set its "Button Set" dropdown selects. `HealiumSpells.lua` keeps a parallel `OffensiveCures` table (Dispel Magic → Magic) read through `Healium_GetOffensiveDispelTypes`.
+
 `Profile.IDs` and `Healium_Spell.ID` are **spellbook slot indices, not global spell IDs** (`GetSpellSlotID()` scans the spellbook by localized name and rejects `FutureSpell` entries). Slots shift when spells are renamed or talents change, so `Healium_SetButtonAttributes` refreshes `button.id` even *during* combat while skipping the protected `SetAttribute` calls.
 
 Secure action buttons are driven by name, not ID: `type` = `spell`/`macro`/`item` and `spell`/`macro`/`item` = the localized name (retail) or `name(rank)` via `Healium_MakeRankedSpellName` (classic).
@@ -71,6 +73,7 @@ Secure action buttons are driven by name, not ID: `type` = `spell`/`macro`/`item
 `HealiumUnitFrames.lua` builds, per frame type, a movable `HealiumUnitFrameTemplate` container plus a secure header child:
 
 - `SecureGroupHeaderTemplate` for party / me / friends / raid groups 1-8 / role frames (`roleFilter` = `DAMAGER`, `HEALER`, `MT,TANK`), `SecureGroupPetHeaderTemplate` for pets, and a plain `RegisterUnitWatch` frame for target/focus.
+- Retail only: the Arena frame is three such `RegisterUnitWatch` buttons (arena1-3) stacked under one container, each flagged `isHostile`, which selects the hostile profile and switches its debuff Aura Container to `HELPFUL|RAID_PLAYER_DISPELLABLE` (enemy buffs the offensive dispel can strip). `/hlm arena test` retargets them to target/focus/player out of combat; entering an arena turns test mode off.
 - Every header gets `template = "HealiumUnitFrames_ButtonTemplate"` from `SetHeaderAttributes`; Blizzard instantiates one unit button per member.
 - When the header assigns a unit, `HealiumUnitFrames_Button_OnAttributeChanged` fires and registers the frame in `Healium_Units[unit]`. That map is how `UNIT_HEALTH`, `UNIT_POWER_UPDATE`, `UNIT_THREAT_SITUATION_UPDATE`, `UNIT_NAME_UPDATE` are routed to only the affected frames. `Healium_Frames` (all) and `Healium_ShownFrames` are the other global registries.
 - Heal buttons hang off the unit button (`frame.buttons[1..15]`, `button.index`), created by `Healium_CreateButtonsForNameplate`.
