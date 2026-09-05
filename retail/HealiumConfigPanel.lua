@@ -14,6 +14,8 @@ local ProfilesPanelOverwriteButton
 local ProfilesPanelLoadButton
 local ProfilesPanelRenameButton
 local ProfilesPanelDeleteButton
+local ProfilesPanelExportButton
+local ProfilesPanelImportButton
 
 local FrameLayoutsPanel
 local FrameLayoutsPanelRows = {}
@@ -107,6 +109,105 @@ local function RefreshProfilesPanel()
 	ProfilesPanelLoadButton:SetEnabled(hasSelection)
 	ProfilesPanelRenameButton:SetEnabled(hasSelection)
 	ProfilesPanelDeleteButton:SetEnabled(hasSelection)
+	ProfilesPanelExportButton:SetEnabled(hasSelection)
+end
+
+-- Button profiles travel between accounts as text.  The format is deliberately
+-- not Lua: a pasted string is untrusted input and must never be executed.
+-- Spell names contain the separators (Power Word: Shield), so the four fields
+-- of each entry are percent encoded.
+local PROFILE_STRING_PREFIX = "HLM1"
+
+local function EncodeField(value)
+	if value == nil then return "" end
+
+	return (tostring(value):gsub("[%%,;:]", function(c)
+		return string.format("%%%02X", string.byte(c))
+	end))
+end
+
+local function DecodeField(text)
+	if text == nil or text == "" then return nil end
+
+	return (text:gsub("%%(%x%x)", function(hex)
+		return string.char(tonumber(hex, 16))
+	end))
+end
+
+local function SerializeProfile(profile)
+	local _, class = UnitClass("player")
+
+	local header = table.concat({
+		PROFILE_STRING_PREFIX,
+		EncodeField(class),
+		tostring(profile.ButtonCount or 0),
+		EncodeField(profile.PartyFrameOrder or "DEFAULT"),
+	}, ":")
+
+	local entries = {}
+
+	for i = 1, Healium_MaxButtons do
+		entries[i] = table.concat({
+			EncodeField(profile.SpellTypes and profile.SpellTypes[i]),
+			EncodeField(profile.SpellIcons and profile.SpellIcons[i]),
+			EncodeField(profile.SpellNames and profile.SpellNames[i]),
+			EncodeField(profile.SpellRanks and profile.SpellRanks[i]),
+		}, ",")
+	end
+
+	return header .. ":" .. table.concat(entries, ";")
+end
+
+-- Returns profile, class on success, or nil, nil, message on failure.
+local function DeserializeProfile(text)
+	if type(text) ~= "string" then return nil, nil, "Nothing to import." end
+
+	text = strtrim(text)
+	if text == "" then return nil, nil, "Nothing to import." end
+
+	local class, count, order, body = text:match("^" .. PROFILE_STRING_PREFIX .. ":([^:]*):([^:]*):([^:]*):(.*)$")
+	if not class then
+		return nil, nil, "That does not look like a Healium button profile string."
+	end
+
+	local buttonCount = tonumber(count)
+	if not buttonCount or buttonCount < 0 or buttonCount > Healium_MaxButtons then
+		return nil, nil, "That profile string has an invalid button count."
+	end
+
+	local profile = {
+		ButtonCount = buttonCount,
+		PartyFrameOrder = DecodeField(order) or "DEFAULT",
+		SpellNames = {},
+		SpellIcons = {},
+		SpellTypes = {},
+		SpellRanks = {},
+		IDs = {},
+	}
+
+	-- Split by hand rather than with gmatch, which drops empty entries and would
+	-- silently shift every button after an unconfigured one.
+	local index, pos = 0, 1
+
+	while index < Healium_MaxButtons do
+		local sep = body:find(";", pos, true)
+		local entry = sep and body:sub(pos, sep - 1) or body:sub(pos)
+		index = index + 1
+
+		local spellType, icon, name, rank = entry:match("^([^,]*),([^,]*),([^,]*),([^,]*)$")
+		if spellType then
+			local decodedIcon = DecodeField(icon)
+			profile.SpellTypes[index] = tonumber(spellType)
+			profile.SpellIcons[index] = tonumber(decodedIcon or "") or decodedIcon
+			profile.SpellNames[index] = DecodeField(name)
+			profile.SpellRanks[index] = DecodeField(rank)
+		end
+
+		if not sep then break end
+		pos = sep + 1
+	end
+
+	return profile, DecodeField(class)
 end
 
 -- Blizzard has shipped these dialog members under more than one name.  Take
@@ -173,6 +274,54 @@ StaticPopupDialogs["HEALIUM_PROFILE_OVERWRITE"] = {
 	OnAccept = function(_, data)
 		data.callback()
 	end,
+}
+
+StaticPopupDialogs["HEALIUM_PROFILE_EXPORT"] = {
+	text = "%s",
+	button1 = OKAY,
+	hasEditBox = true,
+	editBoxWidth = 350,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+	OnShow = function(self, data)
+		local editBox = GetPopupEditBox(self)
+		if not editBox then return end
+		editBox:SetMaxLetters(0)
+		editBox:SetText(data and data.text or "")
+		editBox:HighlightText()
+		editBox:SetFocus()
+	end,
+	EditBoxOnEnterPressed = function(editBox) editBox:GetParent():Hide() end,
+	EditBoxOnEscapePressed = function(editBox) editBox:GetParent():Hide() end,
+}
+
+StaticPopupDialogs["HEALIUM_PROFILE_IMPORT"] = {
+	text = "%s",
+	button1 = ACCEPT,
+	button2 = CANCEL,
+	hasEditBox = true,
+	editBoxWidth = 350,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+	OnShow = function(self)
+		local editBox = GetPopupEditBox(self)
+		if not editBox then return end
+		editBox:SetMaxLetters(0)
+		editBox:SetText("")
+		editBox:SetFocus()
+	end,
+	OnAccept = function(self, data)
+		local editBox = GetPopupEditBox(self)
+		if not editBox or not data or not data.callback then return end
+		data.callback(editBox:GetText())
+	end,
+	EditBoxOnEnterPressed = function(editBox)
+		local button = GetPopupAcceptButton(editBox:GetParent())
+		if button then button:Click() end
+	end,
+	EditBoxOnEscapePressed = function(editBox) editBox:GetParent():Hide() end,
 }
 
 local function ShowProfileNameDialog(prompt, initialName, callback)
@@ -298,6 +447,56 @@ local function DeleteProfile()
 	end)
 end
 
+local function ExportProfile()
+	local name = ProfilesPanelSelectedName
+	local saved = name and GetClassProfiles()[name]
+	if not saved then return end
+
+	StaticPopup_Show("HEALIUM_PROFILE_EXPORT",
+		"Copy this text to share '" .. name .. "':", nil,
+		{ text = SerializeProfile(saved) })
+end
+
+local function ImportProfile()
+	StaticPopup_Show("HEALIUM_PROFILE_IMPORT", "Paste a Healium button profile string:", nil, {
+		callback = function(text)
+			local imported, sourceClass, err = DeserializeProfile(text)
+
+			if not imported then
+				Healium_Warn(err)
+				SetProfilesPanelStatus(err)
+				return
+			end
+
+			local _, playerClass = UnitClass("player")
+			if sourceClass and playerClass and sourceClass ~= playerClass then
+				Healium_Warn("That button profile came from a " .. sourceClass .. ", so not all of its spells will be available.")
+			end
+
+			ShowProfileNameDialog("Name the imported button profile:", "", function(name)
+				name = NormalizeProfileName(name)
+				if not name then return end
+
+				local existingName = FindProfileName(name)
+				if existingName then
+					ShowProfileOverwriteConfirmation("A button profile named '" .. existingName .. "' already exists. Replace it with the imported one?", function()
+						GetClassProfiles()[existingName] = imported
+						ProfilesPanelSelectedName = existingName
+						SetProfilesPanelStatus("Imported into '" .. existingName .. "'.")
+						RefreshProfilesPanel()
+					end)
+					return
+				end
+
+				GetClassProfiles()[name] = imported
+				ProfilesPanelSelectedName = name
+				SetProfilesPanelStatus("Imported '" .. name .. "'.")
+				RefreshProfilesPanel()
+			end)
+		end,
+	})
+end
+
 local function CreateProfilesPanel(parentCategory)
 	local panel = CreateFrame("Frame", nil, UIParent)
 	ProfilesPanel = panel
@@ -406,8 +605,20 @@ local function CreateProfilesPanel(parentCategory)
 	ProfilesPanelDeleteButton:SetText("Delete Button Profile")
 	ProfilesPanelDeleteButton:SetScript("OnClick", DeleteProfile)
 
+	ProfilesPanelExportButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ProfilesPanelExportButton:SetPoint("LEFT", ProfilesPanelDeleteButton, "RIGHT", 8, 0)
+	ProfilesPanelExportButton:SetSize(170, 24)
+	ProfilesPanelExportButton:SetText("Export to Text")
+	ProfilesPanelExportButton:SetScript("OnClick", ExportProfile)
+
+	ProfilesPanelImportButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+	ProfilesPanelImportButton:SetPoint("TOPLEFT", ProfilesPanelDeleteButton, "BOTTOMLEFT", 0, -8)
+	ProfilesPanelImportButton:SetSize(170, 24)
+	ProfilesPanelImportButton:SetText("Import from Text")
+	ProfilesPanelImportButton:SetScript("OnClick", ImportProfile)
+
 	ProfilesPanelStatus = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	ProfilesPanelStatus:SetPoint("TOPLEFT", ProfilesPanelDeleteButton, "BOTTOMLEFT", 0, -15)
+	ProfilesPanelStatus:SetPoint("TOPLEFT", ProfilesPanelImportButton, "BOTTOMLEFT", 0, -15)
 	ProfilesPanelStatus:SetWidth(600)
 	ProfilesPanelStatus:SetJustifyH("LEFT")
 	ProfilesPanelStatus:SetTextColor(0.4, 1, 0.4)
