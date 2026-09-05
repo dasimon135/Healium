@@ -312,7 +312,12 @@ function Healium_UpdateClassColors()
 				else
 					local Health = UnitHealth(k.TargetUnit)
 					local MaxHealth = UnitHealthMax(k.TargetUnit)
-					HPPercent =  Health / MaxHealth
+
+					-- Guarded the way Healium_UpdateUnitHealth already does: without
+					-- this the result is nan, every comparison in UpdateHealthBar
+					-- fails and the bar silently keeps its previous colour.
+					local HPPercent = 0
+					if MaxHealth > 0 then HPPercent = Health / MaxHealth end
 					UpdateHealthBar(HPPercent, k)
 				end
 			end
@@ -936,7 +941,7 @@ local function GetCooldown(Profile, column)
 			local name = GetMacroSpell(Profile.SpellNames[column])
 			if name then 
 				if Healium_IsRetail then
-					spellCooldownInfo = C_Spell.GetSpellCooldown(name)
+					local spellCooldownInfo = C_Spell.GetSpellCooldown(name)
 					if spellCooldownInfo == nil then return end					
 					start = spellCooldownInfo.startTime
 					duration = spellCooldownInfo.duration
@@ -959,7 +964,7 @@ local function GetCooldown(Profile, column)
 				-- GetSpellCooldown doesn't seem to work with slotIDs but does with ranked spell names
 				local rankedSpellName = Healium_MakeRankedSpellName(Profile.SpellNames[column], Profile.SpellRanks[column])
 				if Healium_IsRetail then
-					spellCooldownInfo = C_Spell.GetSpellCooldown(name)
+					local spellCooldownInfo = C_Spell.GetSpellCooldown(name)
 					if spellCooldownInfo == nil then return end
 					start = spellCooldownInfo.startTime
 					duration = spellCooldownInfo.duration
@@ -1459,7 +1464,13 @@ function Healium_OnEvent(frame, event, ...)
 	
 	if event == "UNIT_NAME_UPDATE" then
 		if Healium_Units[arg1] then
-			local name = strupper(UnitName(arg1))
+			local name = UnitName(arg1)
+
+			-- UnitName is nil until the unit is fully available, and strupper(nil)
+			-- throws.  The uppercase option was ignored here too.
+			if name and Healium.UppercaseNames then
+				name = strupper(name)
+			end
 			for _,v  in pairs(Healium_Units[arg1]) do
 				v.HealthBar.name:SetText(name)			
 			end

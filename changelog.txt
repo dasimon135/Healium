@@ -1,3 +1,9 @@
+3.5.8
+* Classic: Fixed an error when a unit name update arrived before the unit was fully available.  The name was also forced to uppercase even with the Uppercase Names option turned off.
+* Classic: Fixed the health bar silently keeping its previous colour, instead of updating, when a unit reported a maximum health of zero.
+* Retail and Classic: /hlm now lists the debug and dump commands, which already worked but were left undocumented.
+* Retail and Classic: Removed leftover example code that leaked a MY_VARIABLE global, along with the last remaining implicit globals.
+
 3.5.7
 * Retail: Fixed a Lua error when hovering a heal button whose unit has a secret name.  Midnight can make unit names secret, and the Target line of the tooltip was built by joining that name into a string, which is not allowed.
 * Retail: The mana bar now handles a secret dead or ghost state, and no longer greys itself out when the power type is secret rather than known to be something other than mana.
