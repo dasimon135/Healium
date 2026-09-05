@@ -9,6 +9,7 @@ local FriendsFrame = nil
 local GroupFrames = { }
 local TargetFrame = nil
 local FocusFrame = nil
+local ArenaFrame = nil
 
 local PartyFrameWasShown = nil
 local PetsFrameWasShown = nil
@@ -20,6 +21,13 @@ local FriendsFrameWasShown = nil
 local GroupFramesWasShown = { }
 local TargetFrameWasShown = nil
 local FocusFrameWasShown = nil
+local ArenaFrameWasShown = nil
+
+-- Solo Shuffle, 2v2 and 3v3 never field more than three opponents.
+local ArenaUnits = { "arena1", "arena2", "arena3" }
+-- /hlm arena test points the same three buttons at units that exist anywhere.
+local ArenaTestUnits = { "target", "focus", "player" }
+local ArenaTestMode = false
 
 local MaxBuffs = 10
 local xSpacing = 2
@@ -545,7 +553,7 @@ end
 -- please make sure we are not in combat before calling this function
 function Healium_CreateButtonsForNameplate(frame)
 	local x = xSpacing
-	local Profile = Healium_GetProfile()
+	local Profile = Healium_GetProfileForFrame(frame)
 	
 	for i=1, Healium_MaxButtons, 1 do
 		local name = frame:GetName()
@@ -791,6 +799,32 @@ local function CreateFocusUnitFrame(FrameName, Caption)
 	return uf
 end
 
+-- Arena opponents: three watched unit buttons stacked under one movable
+-- container, like Target and Focus.  isHostile switches them to the offensive
+-- button profile and to the enemy buff filters.  OnLoad runs before the flag
+-- can be set, so the buttons it builds are refreshed by Healium_UpdateButtons
+-- at the end of ADDON_LOADED.
+local function CreateArenaUnitFrame(FrameName, Caption)
+	local uf = CreateUnitFrame(FrameName, Caption)
+	uf.hdrs = { }
+
+	local anchor = uf
+	for i, unit in ipairs(ArenaUnits) do
+		local h = CreateFrame("Button", FrameName .. "_Header" .. i, uf, "HealiumUnitFrames_ButtonTemplate")
+		h.isCustom = true
+		h.isHostile = true
+		h:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT")
+		h:SetAttribute("unit", unit)
+		RegisterUnitWatch(h)
+		h:Show()
+		uf.hdrs[i] = h
+		anchor = h
+	end
+
+	uf.hdr = uf.hdrs[1]
+	return uf
+end
+
 function Healium_UpdateCloseButtons()
 	for _,j in pairs(UnitFrames) do
 		UpdateCloseButton(j)
@@ -887,12 +921,18 @@ function HealiumUnitFrames_ShowHideFrame(frame, show)
 		Healium_DebugPrint("ShowHide Focus Frame")
 		Healium.ShowFocusFrame = show
 		Healium_ShowFocusCheck:SetChecked(Healium.ShowFocusFrame)
-		Healium_UpdateShowFocusFrame()		
+		Healium_UpdateShowFocusFrame()
 		Healium_UpdateFocusFrame()
 		return
 	end
-	
-	
+
+	if frame == ArenaFrame then
+		Healium_DebugPrint("ShowHide Arena Frame")
+		Healium.ShowArenaFrame = show
+		Healium_ShowArenaCheck:SetChecked(Healium.ShowArenaFrame)
+		return
+	end
+
 	for i,j in ipairs(GroupFrames) do
 		if frame == j then
 			Healium.ShowGroupFrames[i] = show
@@ -1083,6 +1123,7 @@ function Healium_ToggleAllFrames(forceHide, silent)
 		if TanksFrame:IsShown() then hide = true end
 		if TargetFrame:IsShown() then hide = true end
 		if FocusFrame:IsShown() then hide = true end
+		if ArenaFrame:IsShown() then hide = true end
 
 
 		for i,j in ipairs(GroupFrames) do
@@ -1103,6 +1144,7 @@ function Healium_ToggleAllFrames(forceHide, silent)
 		TanksFrameWasShown = TanksFrame:IsShown()
 		TargetFrameWasShown = TargetFrame:IsShown()
 		FocusFrameWasShown = FocusFrame:IsShown()
+		ArenaFrameWasShown = ArenaFrame:IsShown()
 
 		PartyFrame:Hide()
 		PetsFrame:Hide()
@@ -1113,8 +1155,9 @@ function Healium_ToggleAllFrames(forceHide, silent)
 		TanksFrame:Hide()
 		TargetFrame:Hide()
 		FocusFrame:Hide()
+		ArenaFrame:Hide()
 
-		
+
 		for i,j in ipairs(GroupFrames) do
 			GroupFramesWasShown[i] = j:IsShown()
 			j:Hide()
@@ -1138,6 +1181,7 @@ function Healium_ToggleAllFrames(forceHide, silent)
 	if TanksFrameWasShown then TanksFrame:Show() end
 	if TargetFrameWasShown then TargetFrame:Show() end
 	if FocusFrameWasShown then FocusFrame:Show() end
+	if ArenaFrameWasShown then ArenaFrame:Show() end
 
 	
 	for i,j in ipairs(GroupFramesWasShown) do
@@ -1273,7 +1317,58 @@ function Healium_ShowHideFocusFrame(show)
 		FocusFrame:Hide()
 	end
 	
-	Healium_UpdateShowFocusFrame()	
+	Healium_UpdateShowFocusFrame()
+end
+
+function Healium_ShowHideArenaFrame(show)
+	if ArenaFrame == nil then return end
+	if not CanChangeFrameVisibility() then return end
+	if (show ~= nil) then Healium.ShowArenaFrame = show end
+
+	-- Test mode keeps the frame up whatever the setting says.
+	if Healium.ShowArenaFrame or ArenaTestMode then
+		ArenaFrame:Show()
+	else
+		ArenaFrame:Hide()
+	end
+end
+
+-- /hlm arena test: point the three arena buttons at target, focus and the
+-- player, so layout and buttons can be checked without queueing.
+function Healium_SetArenaTestMode(enabled)
+	if ArenaFrame == nil then return end
+	if InCombatLockdown() then
+		Healium_Warn("Arena test mode cannot be changed during combat.")
+		return
+	end
+
+	ArenaTestMode = enabled and true or false
+
+	for i, h in ipairs(ArenaFrame.hdrs) do
+		h:SetAttribute("unit", ArenaTestMode and ArenaTestUnits[i] or ArenaUnits[i])
+	end
+
+	Healium_ShowHideArenaFrame()
+
+	if ArenaTestMode then
+		Healium_Print("Arena test mode ON: the Arena frame shows your target, focus and yourself.  Type " .. Healium_Slash .. " arena test again to turn it off.")
+	else
+		Healium_Print("Arena test mode OFF.")
+	end
+end
+
+function Healium_ToggleArenaTestMode()
+	Healium_SetArenaTestMode(not ArenaTestMode)
+end
+
+-- Walking into an arena with test mode still on would show the wrong units.
+function Healium_UpdateArenaTestMode()
+	if not ArenaTestMode then return end
+
+	local _, instanceType = IsInInstance()
+	if instanceType == "arena" then
+		Healium_SetArenaTestMode(false)
+	end
 end
 
 function Healium_ShowHideGroupFrame(group, show)
@@ -1339,6 +1434,7 @@ function Healium_CreateUnitFrames()
 	TanksFrame = CreateTanksUnitFrame("HealiumTanksFrame", "Tanks")
 	TargetFrame = CreateTargetUnitFrame("HealiumTargetFrame", "Target")
 	FocusFrame = CreateFocusUnitFrame("HealiumFocusFrame", "Focus")
+	ArenaFrame = CreateArenaUnitFrame("HealiumArenaFrame", "Arena")
 
 	for i=1, 8, 1 do
 		GroupFrames[i] = CreateGroupUnitFrame("HealiumGroup" .. i .. "Frame", "Group " .. i, tostring(i))
@@ -1360,8 +1456,9 @@ function Healium_SetScale()
 	TanksFrame:SetScale(Scale)
 	TargetFrame:SetScale(Scale)
 	FocusFrame:SetScale(Scale)
+	ArenaFrame:SetScale(Scale)
 
-	
+
 	for i,j in ipairs(GroupFrames) do
 		j:SetScale(Scale)
 	end	
@@ -1400,7 +1497,8 @@ function Healium_CaptureFrameLayout()
 			Tanks = Healium.ShowTanksFrame and true or false,
 			Target = Healium.ShowTargetFrame and true or false,
 			Focus = Healium.ShowFocusFrame and true or false,
-			Groups = Healium_DeepCopy(Healium.ShowGroupFrames or {}),
+			Arena = Healium.ShowArenaFrame and true or false,
+			Groups =Healium_DeepCopy(Healium.ShowGroupFrames or {}),
 		},
 		Positions = positions,
 	}
@@ -1434,6 +1532,7 @@ function Healium_ApplyFrameLayout(layout)
 	Healium_ShowHideTanksFrame(visibility.Tanks and true or false)
 	Healium_ShowHideTargetFrame(visibility.Target and true or false)
 	Healium_ShowHideFocusFrame(visibility.Focus and true or false)
+	Healium_ShowHideArenaFrame(visibility.Arena and true or false)
 	for group = 1, 8 do
 		Healium_ShowHideGroupFrame(group, visibility.Groups and visibility.Groups[group] and true or false)
 	end
