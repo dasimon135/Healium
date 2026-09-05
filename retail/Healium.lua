@@ -66,6 +66,7 @@ local HealiumDefaults = {
   ShowTanksFrame = false,						-- Whether or not to show the Tanks frame
   ShowTargetFrame = false,						-- Whether or not to show the target frame
   ShowFocusFrame = false,						-- Whether or not to show the focus frame
+  ShowArenaFrame = false,						-- Whether or not to show the arena frame (new in 3.7.0)
   ShowBuffs = true,								-- Whether or not to show your own buffs, that are configured in Healium to the left of the healthbar
   HideCloseButton = false,						-- Whether or not to hide the close (X) button, to prevent accidental closing of the Healium Frame
   HideCaptions = false,							-- Whether or not to hide the caption when the mouse leaves the caption area
@@ -77,6 +78,7 @@ local HealiumDefaults = {
 	ShowDebuffIcon = true,							-- Whether or not to show the debuff icon over matching cure buttons
   EnableDebufAudio = false,					-- Whether or not to play a sound when a unit has a debuff you can cure (off by default: new in 3.6.0)
   DebufAudioFile = "Horde Bell",				-- Which sound to play, by name, from Healium_Sounds
+  EnableOffensiveDispelAudio = false,			-- Whether or not to play a sound when an arena opponent has a buff you can dispel (new in 3.7.0)
   EnableDebufHealthbarColoring = false,			-- Whether or not to color the heatlhbar of a player when they have a debuf which you can cure
   ShowMana = true,								-- Whether or not to show mana
   ShowThreat = true,							-- Whether or not to show the threat warnings
@@ -250,7 +252,32 @@ function Healium_GetProfile()
 		currentSpec = 1
 	end
 	
-	return Healium.Profiles[currentSpec] 
+	return Healium.Profiles[currentSpec]
+end
+
+-- Hostile frames (arena opponents) carry their own, offensive, button set.
+function Healium_GetHostileProfile()
+	local currentSpec = GetSpecialization()
+
+	if not currentSpec then
+		currentSpec = 1
+	end
+
+	return Healium.HostileProfiles[currentSpec]
+end
+
+-- The profile a unit frame's buttons are built from.
+function Healium_GetProfileForFrame(frame)
+	if frame and frame.isHostile then
+		return Healium_GetHostileProfile()
+	end
+
+	return Healium_GetProfile()
+end
+
+-- Heal buttons are direct children of their unit frame.
+function Healium_GetProfileForButton(button)
+	return Healium_GetProfileForFrame(button:GetParent())
 end
 
 function Healium_SetProfileSpell(profile, index, spellName, spellID, spellIcon, spellRank)
@@ -1299,8 +1326,33 @@ local function InitVariables()
 		end
 
 		-- SpellRanks was added in 2.7.0
-		if Healium.Profiles[i].SpellRanks == nil then 
+		if Healium.Profiles[i].SpellRanks == nil then
 			Healium.Profiles[i].SpellRanks = {}
+		end
+	end
+
+	-- Hostile profiles (arena opponents) were added in 3.7.0.  Same shape as
+	-- Healium.Profiles; PartyFrameOrder means nothing there and is left unset.
+	if Healium.HostileProfiles == nil then
+		Healium.HostileProfiles = { }
+	end
+
+	for i = 1,5 do
+		if Healium.HostileProfiles[i] == nil then
+			Healium.HostileProfiles[i] = Healium_DeepCopy(DefaultProfile)
+			Healium.HostileProfiles[i].PartyFrameOrder = nil
+		end
+
+		if Healium.HostileProfiles[i].SpellTypes == nil then
+			Healium.HostileProfiles[i].SpellTypes = {}
+		end
+
+		if Healium.HostileProfiles[i].IDs == nil then
+			Healium.HostileProfiles[i].IDs = {}
+		end
+
+		if Healium.HostileProfiles[i].SpellRanks == nil then
+			Healium.HostileProfiles[i].SpellRanks = {}
 		end
 	end
 
@@ -1433,8 +1485,9 @@ function Healium_OnEvent(frame, event, ...)
 		Healium_InvalidateSpellSlotCache()
 		Healium_UpdateSpells()
 		Healium_UpdateButtonAttributes()
+		Healium_UpdateArenaTestMode()
 	end
-	
+
 	if (event == "RAID_TARGET_UPDATE") and Healium.ShowRaidIcons then
 		Healium_UpdateRaidIcons()
 		return		
@@ -1518,7 +1571,8 @@ function Healium_OnEvent(frame, event, ...)
 		Healium_ShowHideFriendsFrame()
 		Healium_ShowHideTargetFrame()
 		Healium_ShowHideFocusFrame()
-		
+		Healium_ShowHideArenaFrame()
+
 		for i=1, 8, 1 do
 			Healium_ShowHideGroupFrame(i)
 		end
