@@ -1,3 +1,9 @@
+3.7.0
+* Retail: New Arena frame, one row per arena opponent (arena1 to arena3), with its own button set per specialization, edited from the new Button Set dropdown on the options panel.  Meant for the spells a priest throws at enemies: Dispel Magic, Silence, Psychic Horror, Mind Control, dots.  Enable it under Show Frames or with /hlm show arena; /hlm arena test points it at your target, focus and yourself outside an arena.
+* Retail: On the Arena frame the Blizzard Aura Container shows an opponent's dispellable buff on the Dispel Magic button and on the health bar, the same way curable debuffs show on friendly frames.  An optional Arena Dispel Audio Warning, under Debuff Warnings, plays the debuff sound when that happens.
+* Retail: Saved class button profiles now carry both button sets.  Text export and import still carry the friendly set only.
+* Retail: The priest spell list gains the targeted hostile spells.  Spells past the twentieth entry of a class list could not be picked from the options dropdowns; they can now.
+
 3.6.0
 * Retail: Button profiles can now be exported to a text string and imported back, from the Button Profiles panel.  Saved profiles live in the account file, so until now a setup could not travel to another account or be shared.  The format is plain text and is parsed field by field: a pasted string is never executed as code.
 * Retail: Brought back the dispel audio warning, which retail lost when debuff detection moved to Blizzard Aura Containers.  The container never says which aura it matched, but it does show the health bar debuff button when a curable debuff is present, and that is what the warning now listens to.  Off by default; enable Audio Warning under Debuff Warnings, where the sound can also be chosen and previewed.
