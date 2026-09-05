@@ -1,3 +1,6 @@
+3.5.4
+* Retail: Fixed the buff and dispel filters staying unconfigured when an Aura Container refresh had to be deferred outside combat.  The pending work was only retried when a combat ended, and a frame that failed once was latched in a state that prevented it from ever being queued again.
+
 3.5.3
 * Retail: A button whose spell cannot be found in your spellbook is now greyed out instead of looking like a working button, and its tooltip names the spell and says why it is unavailable rather than claiming the button is empty.
 
