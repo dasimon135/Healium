@@ -1004,7 +1004,7 @@ local function Healium_GetCooldownDurationObject(Profile, index)
 end
 
 function Healium_UpdateButtonCooldownByUnitFrame(frame)
-	local Profile = Healium_GetProfile()
+	local Profile = Healium_GetProfileForFrame(frame)
 	if not Profile then return end
 	local count = Profile.ButtonCount or 0
 
@@ -1018,15 +1018,12 @@ function Healium_UpdateButtonCooldownByUnitFrame(frame)
 end
 
 function Healium_UpdateButtonCooldownsByColumn(column)
-	local Profile = Healium_GetProfile()
-	if not Profile then return end
-
 	-- Common call site: numeric column index
 	if type(column) == "number" then
 		for _, frame in ipairs(Healium_Frames) do
 			local button = frame.buttons and frame.buttons[column]
 			if button and button.cooldown then
-				local durObj = Healium_GetCooldownDurationObject(Profile, column)
+				local durObj = Healium_GetCooldownDurationObject(Healium_GetProfileForFrame(frame), column)
 				Healium_ApplyDurationObject(button.cooldown, durObj)
 			end
 		end
@@ -1061,7 +1058,7 @@ function Healium_UpdateButtonIcon(button, texture)
 	-- A spell button with no spellbook slot cannot be looked up, range
 	-- checked or shown in a tooltip, so grey it out instead of leaving it
 	-- looking like a working button.
-	local Profile = Healium_GetProfile()
+	local Profile = Healium_GetProfileForButton(button)
 	local stype = Profile.SpellTypes[button.index]
 
 	if texture and (stype == nil or stype == Healium_Type_Spell) and not Profile.IDs[button.index] then
@@ -1077,17 +1074,15 @@ function Healium_UpdateButtonIcons()
 		return
 	end
 
-	local Profile = Healium_GetProfile()
-	for i=1, Healium_MaxButtons, 1 do
-		local texture = Profile.SpellIcons[i]
-		
-		for _, k in ipairs(Healium_Frames) do
+	for _, k in ipairs(Healium_Frames) do
+		local Profile = Healium_GetProfileForFrame(k)
+		for i=1, Healium_MaxButtons, 1 do
 			local button = k.buttons[i]
-			if button then 
-				Healium_UpdateButtonIcon(button, texture)
+			if button then
+				Healium_UpdateButtonIcon(button, Profile.SpellIcons[i])
 			end
 		end
-   end
+	end
 end
 
 function Healium_SetButtonAttributes(button)
@@ -1096,7 +1091,7 @@ function Healium_SetButtonAttributes(button)
 	-- Spells (possibly not even configured in Healium) can dynamically change/rename, causing all other spellid to shift/change, so in those cases, we need to 
 	-- update the button.id to keep on the same spell.
 	-- This actually fixed a hard to find Druid bug in 5.0 with Hurricane changing to Astral Storm and causing some spellIDs to shift around.
-	local Profile = Healium_GetProfile()	
+	local Profile = Healium_GetProfileForButton(button)
 	local index = button.index
 	button.id = Profile.IDs[index]
 	
@@ -1127,28 +1122,31 @@ function Healium_SetButtonAttributes(button)
 	button:SetAttribute("item", item)
 end
 
-function Healium_UpdateButtonAttributes()
-	local Profile = Healium_GetProfile()
-	
+local function UpdateProfileSpellSlots(Profile)
 	for i=1, Healium_MaxButtons, 1 do
-	
-		-- update spell IDs
-		if (Profile.SpellTypes[i] == nil) or (Profile.SpellTypes[i] == Healium_Type_Spell) then 
+		if (Profile.SpellTypes[i] == nil) or (Profile.SpellTypes[i] == Healium_Type_Spell) then
 			local name = Profile.SpellNames[i]
 			local subtext = Profile.SpellRanks[i]
-			if name then 
+			if name then
 				Profile.IDs[i] = GetSpellSlotID(name, subtext)
 			end
 		end
-		
-		for _,k in ipairs(Healium_Frames) do
+	end
+end
+
+function Healium_UpdateButtonAttributes()
+	UpdateProfileSpellSlots(Healium_GetProfile())
+	UpdateProfileSpellSlots(Healium_GetHostileProfile())
+
+	for _,k in ipairs(Healium_Frames) do
+		for i=1, Healium_MaxButtons, 1 do
 			local button = k.buttons[i]
-			if button then 
+			if button then
 				Healium_SetButtonAttributes(button)
 			end
 		end
 	end
-	
+
 	Healium_InvalidateRangeCheckCache()
 	Healium_UpdateCures()
 	if Healium_RefreshAuraContainers then
@@ -1170,9 +1168,9 @@ local function UpdateButtonVisibility(frame)
 	end
 
 	-- Show buttons.  The buttons will not actually show up unless their nameplate are visible so it's fine to show them like this.	
-	local count = Healium_GetProfile().ButtonCount
-	
-	for i=1, count, 1 do 
+	local count = Healium_GetProfileForFrame(frame).ButtonCount
+
+	for i=1, count, 1 do
 		local button = frame.buttons[i]	
 		if button then 
 			button:Show()
@@ -1217,21 +1215,24 @@ function Healium_InvalidateRangeCheckCache()
 end
 
 function Healium_RangeCheckButton(button)
-	local Profile = Healium_GetProfile()
+	local Profile = Healium_GetProfileForButton(button)
 	local index = button.index
+	-- The column caches are shared by every frame, so a hostile column must
+	-- not reuse the friendly column's answers.
+	local key = button:GetParent().isHostile and ("H" .. index) or index
 
-	if (Profile.SpellTypes[index] == nil) or (Profile.SpellTypes[index] == Healium_Type_Spell) then 
+	if (Profile.SpellTypes[index] == nil) or (Profile.SpellTypes[index] == Healium_Type_Spell) then
 		if (button.id) then
 			local now = GetTime()
 
-			if ColumnUsableTime[index] == nil or (now - ColumnUsableTime[index]) >= Healium.RangeCheckPeriod then
+			if ColumnUsableTime[key] == nil or (now - ColumnUsableTime[key]) >= Healium.RangeCheckPeriod then
 				local _, noMana = C_Spell.IsSpellUsable(Profile.SpellNames[index])
 
-				ColumnUsableTime[index] = now
-				ColumnNoMana[index] = noMana and true or false
+				ColumnUsableTime[key] = now
+				ColumnNoMana[key] = noMana and true or false
 			end
 
-			if ColumnNoMana[index] then
+			if ColumnNoMana[key] then
 				button.icon:SetVertexColor(0.5, 0.5, 1.0)
 			else
 				if not button.icon.disabled then 
@@ -1241,11 +1242,11 @@ function Healium_RangeCheckButton(button)
 
 			local inRange = C_Spell.IsSpellInRange(Profile.SpellNames[index], button:GetParent().TargetUnit)
 
-			if ColumnHasRange[index] == nil then
-				ColumnHasRange[index] = C_Spell.SpellHasRange(Profile.SpellNames[index]) and true or false
+			if ColumnHasRange[key] == nil then
+				ColumnHasRange[key] = C_Spell.SpellHasRange(Profile.SpellNames[index]) and true or false
 			end
 
-			if ColumnHasRange[index] then
+			if ColumnHasRange[key] then
 				if (inRange == false) or (inRange == 0) or (inRange == nil) then
 					button.icon:SetVertexColor(1.0, 0.3, 0.3)
 				end
