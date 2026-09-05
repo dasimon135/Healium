@@ -261,6 +261,79 @@ local function CreateBuffAuraContainer(frame, unit)
 	return true
 end
 
+-- Retail lost the dispel audio warning when debuff detection moved to Blizzard's
+-- Aura Containers.  The container never tells us which aura it matched, but it
+-- does show the health bar debuff button when a curable debuff is present, so
+-- that is the signal we listen to.  If a future client stops showing that
+-- button the warning simply never fires; nothing else depends on it.
+-- Sound ids from https://wow.tools/files
+Healium_Sounds = {
+	{ ["Alliance Bell"] = { fileid = 566564 }},
+	{ ["Bellow"] = { fileid = 566234 }},
+	{ ["Dwarf Horn"] = { fileid = 566064 }},
+	{ ["Gruntling Horn A"] = { fileid = 598076 }},
+	{ ["Gruntling Horn B"] = { fileid = 598196 }},
+	{ ["Horde Bell"] = { fileid = 565853 }},
+	{ ["Man Scream"] = { fileid = 598052 }},
+	{ ["Night Elf Bell"] = { fileid = 566558 }},
+	{ ["Space Death"] = { fileid = 567198 }},
+	{ ["Tribal Bell"] = { fileid = 566027 }},
+	{ ["Wisp"] = { fileid = 567294 }},
+	{ ["Woman Scream"] = { fileid = 598223 }},
+}
+
+local DebuffSoundFile
+local LastDebuffSoundTime = 0
+local DebuffSoundInterval = 7
+
+function Healium_GetSoundPath(sound)
+	for _, entry in ipairs(Healium_Sounds) do
+		local name = next(entry, nil)
+		if name and sound == name then
+			return entry[name].fileid
+		end
+	end
+
+	return nil
+end
+
+function Healium_InitDebuffSound()
+	DebuffSoundFile = Healium_GetSoundPath(Healium.DebufAudioFile)
+
+	if DebuffSoundFile == nil then
+		Healium.DebufAudioFile = "Horde Bell"
+		DebuffSoundFile = Healium_GetSoundPath(Healium.DebufAudioFile)
+	end
+end
+
+function Healium_PlayDebuffSound()
+	if not DebuffSoundFile then return end
+
+	PlaySoundFile(DebuffSoundFile)
+end
+
+-- Called when Blizzard shows the health bar debuff button, meaning the unit has
+-- a debuff one of the configured buttons can remove.
+local function OnCurableDebuffShown(frame)
+	if not Healium.EnableDebufs or not Healium.EnableDebufAudio then return end
+
+	local now = GetTime()
+	if now < (LastDebuffSoundTime + DebuffSoundInterval) then return end
+
+	local unit = frame and frame.TargetUnit
+	if not unit or not UnitExists(unit) then return end
+
+	-- Do not shout about someone we cannot reach.  UnitInRange returns false for
+	-- the player, and may be secret, in which case warn rather than stay silent.
+	if unit ~= "player" then
+		local inRange = UnitInRange(unit)
+		if not Healium_IsSecret(inRange) and not inRange then return end
+	end
+
+	LastDebuffSoundTime = now
+	Healium_PlayDebuffSound()
+end
+
 local function InitializeHealthDebuffButton(frame)
 	return function(auraButton)
 		auraButton:SetSize(frame.HealthBar:GetWidth(), frame.HealthBar:GetHeight())
@@ -278,6 +351,7 @@ local function InitializeHealthDebuffButton(frame)
 		frame.DebuffHealthColorHolder = overlayHolder
 		overlayHolder:SetAlpha(Healium.EnableDebufs and Healium.EnableDebufHealthbarColoring and 0.35 or 0)
 		auraButton:SetMouseMotionEnabled(false)
+		auraButton:HookScript("OnShow", function() OnCurableDebuffShown(frame) end)
 	end
 end
 
