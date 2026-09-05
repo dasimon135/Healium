@@ -76,7 +76,42 @@ function Healium_UsesAuraContainers()
 	return AuraContainersAvailable and true or false
 end
 
+local AuraContainerRetryScheduled = false
+local AuraContainerRetryDelay = 1
+local AuraContainerRetryMaxDelay = 10
+
+-- Healium_FixNameplates is only drained when combat ends, but aura data can
+-- also be secret outside combat in 12.1.  Without this, a refresh deferred
+-- for that reason would wait for a combat that may never come, leaving the
+-- buff and dispel filters unconfigured.
+local function ScheduleAuraContainerRetry()
+	if AuraContainerRetryScheduled then return end
+	if not C_Timer or not C_Timer.After then return end
+
+	AuraContainerRetryScheduled = true
+
+	-- Back off, so a container that fails for good does not keep a one
+	-- second full refresh running forever.
+	local delay = AuraContainerRetryDelay
+	AuraContainerRetryDelay = math.min(delay * 2, AuraContainerRetryMaxDelay)
+
+	C_Timer.After(delay, function()
+		AuraContainerRetryScheduled = false
+
+		-- In combat PLAYER_REGEN_ENABLED already drains the queue.
+		if InCombatLockdown() then return end
+
+		-- Reschedules itself through QueueAuraContainerRefresh if it is
+		-- still blocked, and stops on its own once everything succeeds.
+		Healium_RefreshAuraContainers()
+	end)
+end
+
 local function QueueAuraContainerRefresh(frame)
+	-- Before the pending check: a frame whose latch is already set still
+	-- needs the retry to keep running.
+	ScheduleAuraContainerRetry()
+
 	if frame.AuraContainerRefreshPending then return end
 	frame.AuraContainerRefreshPending = true
 	table.insert(Healium_FixNameplates, frame)
@@ -406,8 +441,20 @@ function Healium_RefreshAuraContainers()
 	InvalidateAuraFilterCache()
 	local initialized = false
 	for _, frame in ipairs(Healium_Frames) do
+		-- Clear the latch first.  PLAYER_REGEN_ENABLED empties
+		-- Healium_FixNameplates wholesale without touching these flags, so a
+		-- frame can end up flagged but no longer queued, and
+		-- QueueAuraContainerRefresh would then refuse to queue it ever again.
+		frame.AuraContainerRefreshPending = nil
 		RefreshFrameAuraContainers(frame)
 		if frame.BuffAuraContainer and frame.DebuffAuraContainer then initialized = true end
+	end
+
+	-- A failing frame would have asked for another attempt while looping, so
+	-- if none did, everything succeeded and the next problem starts from the
+	-- short delay again.
+	if not AuraContainerRetryScheduled then
+		AuraContainerRetryDelay = 1
 	end
 	if initialized and not AuraContainersReported then
 		Healium_Print("Retail aura displays initialized.")
