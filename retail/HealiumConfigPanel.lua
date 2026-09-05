@@ -109,6 +109,18 @@ local function RefreshProfilesPanel()
 	ProfilesPanelDeleteButton:SetEnabled(hasSelection)
 end
 
+-- Blizzard has shipped these dialog members under more than one name.  Take
+-- whichever exists instead of betting on one and failing silently.
+local function GetPopupEditBox(dialog)
+	return dialog and (dialog.editBox or dialog.EditBox)
+end
+
+local function GetPopupAcceptButton(dialog)
+	if not dialog then return nil end
+	if dialog.Buttons then return dialog.Buttons[1] end
+	return dialog.button1
+end
+
 StaticPopupDialogs["HEALIUM_PROFILE_NAME"] = {
 	text = "%s",
 	button1 = ACCEPT,
@@ -118,17 +130,21 @@ StaticPopupDialogs["HEALIUM_PROFILE_NAME"] = {
 	hideOnEscape = true,
 	preferredIndex = 3,
 	OnShow = function(self, data)
-		self.EditBox:SetMaxLetters(40)
-		self.EditBox:SetText(data.initialName or "")
-		self.EditBox:HighlightText()
-		self.EditBox:SetFocus()
+		local editBox = GetPopupEditBox(self)
+		if not editBox then return end
+		editBox:SetMaxLetters(40)
+		editBox:SetText(data and data.initialName or "")
+		editBox:HighlightText()
+		editBox:SetFocus()
 	end,
 	OnAccept = function(self, data)
-		data.callback(self.EditBox:GetText())
+		local editBox = GetPopupEditBox(self)
+		if not editBox or not data or not data.callback then return end
+		data.callback(editBox:GetText())
 	end,
 	EditBoxOnEnterPressed = function(editBox)
-		local dialog = editBox:GetParent()
-		dialog.Buttons[1]:Click()
+		local button = GetPopupAcceptButton(editBox:GetParent())
+		if button then button:Click() end
 	end,
 	EditBoxOnEscapePressed = function(editBox)
 		editBox:GetParent():Hide()
@@ -301,11 +317,17 @@ local function CreateProfilesPanel(parentCategory)
 	local classIconTexture = classIcon:CreateTexture(nil, "BACKGROUND")
 	classIconTexture:SetAllPoints()
 	classIconTexture:SetTexture("Interface/Glues/CHARACTERCREATE/UI-CHARACTERCREATE-CLASSES")
-	local coords = CLASS_ICON_TCOORDS[class]
-	classIconTexture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	-- Purely decorative, but an unguarded index here used to abort the whole
+	-- panel, and with it the rest of ADDON_LOADED.
+	local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
+	if coords then
+		classIconTexture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	else
+		classIconTexture:Hide()
+	end
 	local classIconText = classIcon:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	classIconText:SetPoint("CENTER", 0, -38)
-	classIconText:SetText(strupper(class))
+	classIconText:SetText(class and strupper(class) or "")
 	classIconText:SetTextColor(1, 1, 0.2, 1)
 
 	local description = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -958,8 +980,14 @@ function Healium_CreateConfigPanel(Class, Version)
 	Healium_ConfigPanel_Category, layout = Settings.RegisterCanvasLayoutCategory(panel, panel.name);
 	--Healium_ConfigPanel_CategoryID = Healium_ConfigPanel_Category:GetID()
 	Settings.RegisterAddOnCategory(Healium_ConfigPanel_Category);
-	CreateProfilesPanel(Healium_ConfigPanel_Category)
-	CreateFrameLayoutsPanel(Healium_ConfigPanel_Category)
+	-- Optional UI.  Unguarded, an error in either one aborts the rest of
+	-- ADDON_LOADED and leaves Healium with no slash commands, no menu and no
+	-- unit frames at all.  Fail loudly, but keep going.
+	local panelOK, panelErr = pcall(CreateProfilesPanel, Healium_ConfigPanel_Category)
+	if not panelOK then Healium_Warn("Button Profiles panel failed to load: " .. tostring(panelErr)) end
+
+	panelOK, panelErr = pcall(CreateFrameLayoutsPanel, Healium_ConfigPanel_Category)
+	if not panelOK then Healium_Warn("Frame Layouts panel failed to load: " .. tostring(panelErr)) end
 
 
 	local scrollframe = CreateFrame("ScrollFrame", "HealiumPanelScrollFrame", panel, "UIPanelScrollFrameTemplate") 
