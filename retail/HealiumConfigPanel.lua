@@ -6,6 +6,26 @@ local PartyFrameOrderOptions = {
 	{ text = "Tank-Healer-DPS", value = "TANK_HEALER_DPS" },
 }
 
+-- Which button set the Button Configuration dropdowns and the button count
+-- slider edit.  Party Frame Order always belongs to the friendly set.
+local EditingHostileProfile = false
+local ButtonSetDropDown
+local ButtonSetOptions = {
+	{ text = "Friendly frames", value = "FRIENDLY" },
+	{ text = "Arena opponents", value = "HOSTILE" },
+}
+
+local function GetEditedProfile()
+	if EditingHostileProfile then
+		return Healium_GetHostileProfile()
+	end
+	return Healium_GetProfile()
+end
+
+local function GetButtonSetText()
+	return EditingHostileProfile and ButtonSetOptions[2].text or ButtonSetOptions[1].text
+end
+
 local ProfilesPanel
 local ProfilesPanelRows = {}
 local ProfilesPanelSelectedName
@@ -33,7 +53,7 @@ local function GetClassProfiles()
 	return HealiumGlobal.ClassProfiles[class]
 end
 
-local function CopyProfile(profile)
+local function CopyProfileSet(profile)
 	return {
 		ButtonCount = profile.ButtonCount,
 		PartyFrameOrder = profile.PartyFrameOrder,
@@ -43,6 +63,16 @@ local function CopyProfile(profile)
 		SpellRanks = Healium_DeepCopy(profile.SpellRanks or {}),
 		IDs = Healium_DeepCopy(profile.IDs or {}),
 	}
+end
+
+-- A saved class profile is the friendly set plus, since 3.7.0, the arena set.
+local function CopyProfile(profile, hostileProfile)
+	local copy = CopyProfileSet(profile)
+	if hostileProfile then
+		copy.Hostile = CopyProfileSet(hostileProfile)
+		copy.Hostile.PartyFrameOrder = nil
+	end
+	return copy
 end
 
 local function FindProfileName(name, ignoredName)
@@ -346,14 +376,14 @@ local function AddNewProfile()
 		local existingName = FindProfileName(name)
 		if existingName then
 			ShowProfileOverwriteConfirmation("A button profile named '" .. existingName .. "' already exists. Replace it with your current Healium button setup?", function()
-				GetClassProfiles()[existingName] = CopyProfile(Healium_GetProfile())
+				GetClassProfiles()[existingName] = CopyProfile(Healium_GetProfile(), Healium_GetHostileProfile())
 				ProfilesPanelSelectedName = existingName
 				SetProfilesPanelStatus("Overwrote '" .. existingName .. "'.")
 				RefreshProfilesPanel()
 			end)
 			return
 		end
-		GetClassProfiles()[name] = CopyProfile(Healium_GetProfile())
+		GetClassProfiles()[name] = CopyProfile(Healium_GetProfile(), Healium_GetHostileProfile())
 		ProfilesPanelSelectedName = name
 		SetProfilesPanelStatus("Added '" .. name .. "' from your current Healium button setup.")
 		RefreshProfilesPanel()
@@ -364,7 +394,7 @@ local function OverwriteProfile()
 	local name = ProfilesPanelSelectedName
 	if not name then return end
 	ShowProfileConfirmation("Replace '" .. name .. "' with your current Healium button setup?", function()
-		GetClassProfiles()[name] = CopyProfile(Healium_GetProfile())
+		GetClassProfiles()[name] = CopyProfile(Healium_GetProfile(), Healium_GetHostileProfile())
 		SetProfilesPanelStatus("Overwrote '" .. name .. "'.")
 		RefreshProfilesPanel()
 	end)
@@ -384,7 +414,11 @@ local function LoadProfile()
 			return
 		end
 		local specialization = GetSpecialization() or 1
-		Healium.Profiles[specialization] = CopyProfile(savedProfile)
+		Healium.Profiles[specialization] = CopyProfileSet(savedProfile)
+		if savedProfile.Hostile then
+			Healium.HostileProfiles[specialization] = CopyProfileSet(savedProfile.Hostile)
+			Healium.HostileProfiles[specialization].PartyFrameOrder = nil
+		end
 
 		-- Macros are per character: a name saved on another character may not
 		-- exist here, and the button would silently do nothing.
@@ -901,6 +935,27 @@ local function PartyFrameOrderDropDown_Init(frame, level)
 	end
 end
 
+local function ButtonSetDropDown_OnClick(dropdownbutton)
+	EditingHostileProfile = dropdownbutton.value == "HOSTILE"
+	Lib_UIDropDownMenu_SetSelectedValue(dropdownbutton.owner, dropdownbutton.value)
+	Lib_UIDropDownMenu_SetText(dropdownbutton.owner, dropdownbutton:GetText())
+	Healium_Update_ConfigPanel()
+end
+
+local function ButtonSetDropDown_Init(frame, level)
+	level = level or 1
+	local selected = EditingHostileProfile and "HOSTILE" or "FRIENDLY"
+	for _, option in ipairs(ButtonSetOptions) do
+		local info = Lib_UIDropDownMenu_CreateInfo()
+		info.text = option.text
+		info.value = option.value
+		info.func = ButtonSetDropDown_OnClick
+		info.owner = frame
+		info.checked = option.value == selected
+		Lib_UIDropDownMenu_AddButton(info, level)
+	end
+end
+
 local function CreateSliderFrame(name, parent)
 	local slider = CreateFrame("Slider", name, parent, "UISliderTemplate")
 	slider.High = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -923,10 +978,10 @@ local function CreateDropDownMenu(name,parent)
 end
 
 local function DropDownMenuItem_OnClick(dropdownbutton)
-	Lib_UIDropDownMenu_SetSelectedValue(dropdownbutton.owner, dropdownbutton.value) 
+	Lib_UIDropDownMenu_SetSelectedValue(dropdownbutton.owner, dropdownbutton.value)
 
-	local Profile = Healium_GetProfile()
-	
+	local Profile = GetEditedProfile()
+
 	if (dropdownbutton.value == nil) then
 --		Healium_SetProfileSpell(Profile, i, nil, nil, nil)
 	end
@@ -986,7 +1041,7 @@ end
 
 function Healium_SetButtonCount(count)
 	HealiumMaxButtonSlider.Text:SetText("Show |cFFFFFFFF"..count.. "|r Buttons")
-	Healium_GetProfile().ButtonCount = count
+	GetEditedProfile().ButtonCount = count
 	Healium_UpdateButtonVisibility()
 	if Healium_RefreshAuraContainers then
 		Healium_RefreshAuraContainers()
@@ -1112,6 +1167,10 @@ local function EnableDebuffButtonHighlightingCheck_OnClick(frame)
 	Healium_UpdateEnableDebuffs()
 end
 
+local function EnableOffensiveDispelAudioCheck_OnClick(frame)
+	Healium.EnableOffensiveDispelAudio = frame:GetChecked() or false
+end
+
 local function EnableDebuffAudioCheck_OnClick(frame)
 	Healium.EnableDebufAudio = frame:GetChecked() or false
 	Healium_UpdateEnableDebuffs()
@@ -1188,15 +1247,19 @@ end
 
 -- Used to update the config panel controls when the profile changes
 function Healium_Update_ConfigPanel()
-	local Profile = Healium_GetProfile()
 	if PartyFrameOrderDropDown then
-		local order = Profile.PartyFrameOrder or "DEFAULT"
+		local order = Healium_GetProfile().PartyFrameOrder or "DEFAULT"
 		local text = order == "TANK_HEALER_DPS" and "Tank-Healer-DPS" or "Default"
 		Lib_UIDropDownMenu_SetSelectedValue(PartyFrameOrderDropDown, order)
 		Lib_UIDropDownMenu_SetText(PartyFrameOrderDropDown, text)
 	end
-	
-	HealiumMaxButtonSlider:SetValue(Healium_GetProfile().ButtonCount)
+
+	if ButtonSetDropDown then
+		Lib_UIDropDownMenu_SetText(ButtonSetDropDown, GetButtonSetText())
+	end
+
+	local Profile = GetEditedProfile()
+	HealiumMaxButtonSlider:SetValue(Profile.ButtonCount)
 	
 	for i=1, Healium_MaxButtons, 1 do    
 		local name
@@ -1387,12 +1450,18 @@ function Healium_CreateConfigPanel(Class, Version)
 	ButtonConfigTitleSubText:SetText("Click the dropdowns to configure each button.|nYou may now drag and drop directly from the spellbook|nonto buttons to configure them, including buffs!")
 	ButtonConfigTitleSubText:SetTextColor(1,1,1,1) 	
 
+	ButtonSetDropDown = CreateDropDownMenu("$parentButtonSetDropDown", scrollchild)
+	ButtonSetDropDown:SetPoint("TOPLEFT", ButtonConfigTitleSubText, "BOTTOMLEFT", 50, -5)
+	ButtonSetDropDown.Text:SetText("Button Set")
+	ButtonSetDropDown.tooltipText = "Friendly frames share one button set per specialization; the Arena frame has its own."
+	Lib_UIDropDownMenu_Initialize(ButtonSetDropDown, ButtonSetDropDown_Init)
+
 	local y_inc = 20
-	
+
 	for i=1, Healium_MaxButtons, 1 do
 		HealiumDropDown[i] = CreateDropDownMenu("HealiumDropDown[" .. i .. "]",scrollchild)
 		if i == 1 then
-			HealiumDropDown[i]:SetPoint("TOPLEFT", ButtonConfigTitleSubText, "BOTTOMLEFT", 50, -5)
+			HealiumDropDown[i]:SetPoint("TOPLEFT", ButtonSetDropDown, "TOPLEFT", 0, -y_inc - 6)
 		else
 			HealiumDropDown[i]:SetPoint("TOPLEFT", HealiumDropDown[i - 1], "TOPLEFT", 0, -y_inc)
 		end
@@ -1411,7 +1480,7 @@ function Healium_CreateConfigPanel(Class, Version)
     HealiumMaxButtonSlider:SetMinMaxValues(0,Healium_MaxButtons)
 --	HealiumMaxButtonSlider:SetStepsPerPage(1)	
     HealiumMaxButtonSlider:SetValueStep(1)
-    HealiumMaxButtonSlider:SetValue(Healium_GetProfile().ButtonCount)
+    HealiumMaxButtonSlider:SetValue(GetEditedProfile().ButtonCount)
 	HealiumMaxButtonSlider.tooltipText = "How many " .. Healium_AddonColoredName .. " buttons to show."
       
     HealiumMaxButtonSlider.Text = HealiumMaxButtonSlider:CreateFontString(nil, "BACKGROUND","GameFontNormalLarge")
@@ -1514,11 +1583,18 @@ function Healium_CreateConfigPanel(Class, Version)
 	Healium_ShowFocusCheck:SetScript("OnClick",function()
 		Healium.ShowFocusFrame = Healium_ShowFocusCheck:GetChecked() or false
 		Healium_ShowHideFocusFrame()
-	end)		
+	end)
 
-	
+	-- Show Arena Check
+	Healium_ShowArenaCheck = CreateCheck("$parentShowArenaCheckButton",scrollchild,Healium_ShowFocusCheck, "Shows the Arena " .. Healium_AddonColoredName .. " frame: one row per arena opponent, using the Arena button set.", "Arena")
+
+	Healium_ShowArenaCheck:SetScript("OnClick",function()
+		Healium.ShowArenaFrame = Healium_ShowArenaCheck:GetChecked() or false
+		Healium_ShowHideArenaFrame()
+	end)
+
 	-- Show Group 1 Check
-	local Group1Parent = Healium_ShowFocusCheck
+	local Group1Parent = Healium_ShowArenaCheck
 	Healium_ShowGroup1Check = CreateCheck("$parentShowGroup1CheckButton",scrollchild,Group1Parent, "Shows the Group 1 " .. Healium_AddonColoredName .. " frame.", "Group 1")
     
     Healium_ShowGroup1Check:SetScript("OnClick",function()
@@ -1689,9 +1765,19 @@ function Healium_CreateConfigPanel(Class, Version)
 	EnableDebuffAudioCheck:SetScript("OnClick", EnableDebuffAudioCheck_OnClick)
 	EnableDebuffAudioCheck.tooltipText = "Plays a sound when a unit within range has a debuff one of your buttons can cure.  At most one sound every 7 seconds."
 
+	-- Offensive dispel audio check button
+	local EnableOffensiveDispelAudioCheck = CreateFrame("CheckButton","$parentEnableOffensiveDispelAudioCheckButton",scrollchild,"ChatConfigCheckButtonTemplate")
+	EnableOffensiveDispelAudioCheck:SetPoint("TOPLEFT", EnableDebuffAudioCheck, "BOTTOMLEFT", 0, 0)
+	EnableOffensiveDispelAudioCheck.Text = EnableOffensiveDispelAudioCheck:CreateFontString(nil, "BACKGROUND","GameFontNormal")
+	EnableOffensiveDispelAudioCheck.Text:SetPoint("LEFT", EnableOffensiveDispelAudioCheck, "RIGHT", 0)
+	EnableOffensiveDispelAudioCheck.Text:SetText("Arena Dispel Audio Warning")
+	table.insert(EnableDebuffsCheck.children, EnableOffensiveDispelAudioCheck.Text)
+	EnableOffensiveDispelAudioCheck:SetScript("OnClick", EnableOffensiveDispelAudioCheck_OnClick)
+	EnableOffensiveDispelAudioCheck.tooltipText = "Plays the same sound when an arena opponent has a buff one of your Arena buttons can dispel."
+
 	-- Sound drop down
 	SoundDropDown = CreateFrame("Frame", "$parentSoundDropDown", scrollchild, "Lib_UIDropDownMenuTemplate")
-	SoundDropDown:SetPoint("TOPLEFT", EnableDebuffAudioCheck, "BOTTOMLEFT", 65, 0)
+	SoundDropDown:SetPoint("TOPLEFT", EnableOffensiveDispelAudioCheck, "BOTTOMLEFT", 65, 0)
 	SoundDropDown.Text = SoundDropDown:CreateFontString(nil, "OVERLAY","GameFontNormal")
 	SoundDropDown.Text:SetText("Audio File")
 	SoundDropDown.Text:SetPoint("TOPLEFT",SoundDropDown,"TOPLEFT",-60,-5)
@@ -1835,6 +1921,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	EnableDebuffButtonHighlightingCheck:SetChecked(Healium.EnableDebufButtonHighlighting)
 	ShowDebuffIconCheck:SetChecked(Healium.ShowDebuffIcon)
 	EnableDebuffAudioCheck:SetChecked(Healium.EnableDebufAudio)
+	EnableOffensiveDispelAudioCheck:SetChecked(Healium.EnableOffensiveDispelAudio)
 	Lib_UIDropDownMenu_SetText(SoundDropDown, Healium.DebufAudioFile)
 	EnableDebufHealthbarColoringCheck:SetChecked(Healium.EnableDebufHealthbarColoring)
 	
@@ -1848,6 +1935,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	Healium_ShowHealersCheck:SetChecked(Healium.ShowHealersFrame)		
 	Healium_ShowTanksCheck:SetChecked(Healium.ShowTanksFrame)
 	Healium_ShowTargetCheck:SetChecked(Healium.ShowTargetFrame)
+	Healium_ShowArenaCheck:SetChecked(Healium.ShowArenaFrame)
 	Healium_ShowGroup1Check:SetChecked(Healium.ShowGroupFrames[1])
 	Healium_ShowGroup2Check:SetChecked(Healium.ShowGroupFrames[2])
 	Healium_ShowGroup3Check:SetChecked(Healium.ShowGroupFrames[3])
