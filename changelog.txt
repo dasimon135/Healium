@@ -1,3 +1,6 @@
+3.5.2
+* Retail and Classic: Fixed buttons that had no tooltip, no range check and no mana colouring when the spell is also listed under an inactive specialisation (Flash Heal and Renew on a Discipline priest, for example).  The spellbook lookup stopped at the disabled copy of the spell and reported it as missing; it now asks the game for the slot directly.
+
 3.5.1
 * Retail and Classic: Range checks no longer call IsSpellUsable and SpellHasRange once per button per tick.  Both answers depend only on the button column, so they are now computed once and shared by every unit frame.
 * Retail and Classic: The spellbook is indexed once instead of being rescanned from the start for every spell, and repeated SPELLS_CHANGED events are coalesced into a single update instead of rebuilding every button twice each time.
