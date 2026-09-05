@@ -18,7 +18,7 @@ local function printUsage()
 	Healium_Print(Healium_AddonName .. " Commands")  
 	Healium_Print(Healium_Slash .. " - Shows " .. Healium_AddonName .. " commands.  (what you see here)")
 	Healium_Print(Healium_Slash .. " config - Shows the " .. Healium_AddonName .. " config panel")		
-	Healium_Print(Healium_Slash .. " show [party | pets | me | friends | damagers | healers | tanks | target | focus | 1-8] - Shows the corresponding " .. Healium_AddonName .. " frame")
+	Healium_Print(Healium_Slash .. " show [party | pets | me | friends | damagers | healers | tanks | target | focus | arena | 1-8] - Shows the corresponding " .. Healium_AddonName .. " frame")
 	Healium_Print(Healium_Slash .. " toggle - Shows or Hides the current " .. Healium_AddonName .. " frames.")
 	Healium_Print(Healium_Slash .. " reset frames - Resets the positions of all " .. Healium_AddonName .. " frames")	
 	Healium_Print(Healium_Slash .. " friends add [name or Target] - Adds name to the " .. Healium_AddonName .. " friends list.")	
@@ -27,6 +27,7 @@ local function printUsage()
 	Healium_Print(Healium_Slash .. " friends clear - clears the " .. Healium_AddonName .. " friends list.")				
 	Healium_Print(Healium_Slash .. " debug - Toggles " .. Healium_AddonName .. " debug output, useful when reporting a problem.")
 	Healium_Print(Healium_Slash .. " dump - Prints the saved " .. Healium_AddonName .. " settings.")
+	Healium_Print(Healium_Slash .. " arena test - Toggles a test mode that points the Arena frame at your target, focus and yourself.")
 end
 
 -- handles /hlm reset 
@@ -92,6 +93,7 @@ local showHandlers = {
 	tanks = function() Healium_ShowHideTanksFrame(true) end,
 	target = function() Healium_ShowHideTargetFrame(true) end,
 	focus = function() Healium_ShowHideFocusFrame(true) end,
+	arena = function() Healium_ShowHideArenaFrame(true) end,
 }
 
 setmetatable(showHandlers, mt)
@@ -247,8 +249,19 @@ local function doFriends(val)
 	return friendsHandlers[switch](args)
 end
 
+-- handles /hlm arena
+local function doArena(args)
+	args = args and strtrim(string.lower(args)) or ""
+	if args == "test" then
+		Healium_ToggleArenaTestMode()
+		return
+	end
+	printUsage()
+end
+
 local handlers = {
 	reset = doReset,
+	arena = doArena,
 	dump = doDump,
 	config = doConfig,
 	show = doShow,

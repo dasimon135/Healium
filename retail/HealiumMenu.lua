@@ -34,6 +34,10 @@ local function ShowFocusFrame()
 	Healium_ShowHideFocusFrame(true)
 end
 
+local function ShowArenaFrame()
+	Healium_ShowHideArenaFrame(true)
+end
+
 local function ToggleAllFrames()
 	-- The dropdown calls func(button, arg1, arg2, checked), and
 	-- Healium_ToggleAllFrames reads its first argument as forceHide.  Passed
@@ -287,8 +291,13 @@ local function HealiumMenu_InitializeDropDown(frame,level)
 				},
 				{	-- Focus Frame
 					text = "Show Focus",
-					notCheckable = 1,					
+					notCheckable = 1,
 					func = ShowFocusFrame,
+				},
+				{	-- Arena Frame
+					text = "Show Arena",
+					notCheckable = 1,
+					func = ShowArenaFrame,
 				},
 				{
 					text = "Hide All Raid Groups",
