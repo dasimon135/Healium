@@ -130,21 +130,22 @@ local function SafeAuraContainerCall(frame, method, ...)
 	return ok
 end
 
-local function AddDispelTintTexture(auraButton, texture)
+-- helpful: tint for a dispellable buff on an enemy rather than a debuff on a friend.
+local function AddDispelTintTexture(auraButton, texture, helpful)
 	local addTexture = auraButton.AddDispelTypeTexture or auraButton.SetAuraBorder
 	if not addTexture then return end
 	local style = Enum and Enum.CustomAuraButtonDispelTypeTextureStyle
 		and Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset
 	local options = {
-		showWhenHarmful = true,
-		showWhenHelpful = false,
+		showWhenHarmful = not helpful,
+		showWhenHelpful = helpful and true or false,
 		customDispelColorMap = DispelColorMap,
 	}
 	if style ~= nil then options.style = style end
 	pcall(addTexture, auraButton, texture, options)
 end
 
-local function CreateTintedBorder(auraButton, storage)
+local function CreateTintedBorder(auraButton, storage, helpful)
 	local thickness = 2.5
 	local holder = CreateFrame("Frame", nil, auraButton)
 	holder:SetAllPoints(auraButton)
@@ -166,7 +167,7 @@ local function CreateTintedBorder(auraButton, storage)
 		else
 			texture:SetWidth(thickness)
 		end
-		AddDispelTintTexture(auraButton, texture)
+		AddDispelTintTexture(auraButton, texture, helpful)
 	end
 end
 
@@ -203,11 +204,15 @@ end
 local CachedBuffSpellFilter = nil
 local CachedCureTypes = nil
 local CachedAllCureTypes = nil
+local CachedHostileCureTypes = nil
+local CachedAllHostileCureTypes = nil
 
 local function InvalidateAuraFilterCache()
 	CachedBuffSpellFilter = nil
 	CachedCureTypes = nil
 	CachedAllCureTypes = nil
+	CachedHostileCureTypes = nil
+	CachedAllHostileCureTypes = nil
 end
 
 local function GetPlayerBuffSpellFilter()
@@ -321,9 +326,14 @@ function Healium_PlayDebuffSound()
 end
 
 -- Called when Blizzard shows the health bar debuff button, meaning the unit has
--- a debuff one of the configured buttons can remove.
+-- a debuff one of the configured buttons can remove, or, on a hostile frame, a
+-- buff the offensive dispel can strip.
 local function OnCurableDebuffShown(frame)
-	if not Healium.EnableDebufs or not Healium.EnableDebufAudio then return end
+	if not Healium.EnableDebufs then return end
+
+	local hostile = frame and frame.isHostile
+	if hostile and not Healium.EnableOffensiveDispelAudio then return end
+	if not hostile and not Healium.EnableDebufAudio then return end
 
 	local now = GetTime()
 	if now < (LastDebuffSoundTime + DebuffSoundInterval) then return end
@@ -333,7 +343,8 @@ local function OnCurableDebuffShown(frame)
 
 	-- Do not shout about someone we cannot reach.  UnitInRange returns false for
 	-- the player, and may be secret, in which case warn rather than stay silent.
-	if unit ~= "player" then
+	-- It only knows party and raid members, so opponents skip the check.
+	if unit ~= "player" and not hostile then
 		local inRange = UnitInRange(unit)
 		if not Healium_IsSecret(inRange) and not inRange then return end
 	end
@@ -346,7 +357,7 @@ local function InitializeHealthDebuffButton(frame)
 	return function(auraButton)
 		auraButton:SetSize(frame.HealthBar:GetWidth(), frame.HealthBar:GetHeight())
 		frame.DebuffHealthBorderTextures = {}
-		CreateTintedBorder(auraButton, frame.DebuffHealthBorderTextures)
+		CreateTintedBorder(auraButton, frame.DebuffHealthBorderTextures, frame.isHostile)
 		SetVisualsAlpha(frame.DebuffHealthBorderTextures,
 			Healium.EnableDebufs and Healium.EnableDebufHealthbarHighlighting and 1 or 0)
 		local overlayHolder = CreateFrame("Frame", nil, auraButton)
@@ -355,7 +366,7 @@ local function InitializeHealthDebuffButton(frame)
 		local overlay = overlayHolder:CreateTexture(nil, "ARTWORK")
 		overlay:SetTexture("Interface\\Buttons\\WHITE8X8")
 		overlay:SetAllPoints(overlayHolder)
-		AddDispelTintTexture(auraButton, overlay)
+		AddDispelTintTexture(auraButton, overlay, frame.isHostile)
 		frame.DebuffHealthColorHolder = overlayHolder
 		overlayHolder:SetAlpha(Healium.EnableDebufs and Healium.EnableDebufHealthbarColoring and 0.35 or 0)
 		auraButton:SetMouseMotionEnabled(false)
@@ -371,7 +382,7 @@ local function InitializeCureDebuffButton(frame, index)
 		auraButton:SetSize(width, height)
 
 		frame.DebuffButtonBorderTextures[index] = {}
-		CreateTintedBorder(auraButton, frame.DebuffButtonBorderTextures[index])
+		CreateTintedBorder(auraButton, frame.DebuffButtonBorderTextures[index], frame.isHostile)
 		SetVisualsAlpha(frame.DebuffButtonBorderTextures[index],
 			Healium.EnableDebufs and Healium.EnableDebufButtonHighlighting and 1 or 0)
 		local iconHolder = CreateFrame("Frame", nil, auraButton)
@@ -392,22 +403,44 @@ local function InitializeCureDebuffButton(frame, index)
 end
 
 local GetConfiguredCureTypes
+local GetConfiguredOffensiveCureTypes
+
+local function BuildCureTypeFilters(profile, getTypes)
+	local perButton, all = {}, {}
+
+	for i = 1, Healium_MaxButtons do
+		perButton[i] = getTypes(profile, i)
+		for dispelType in pairs(perButton[i]) do all[dispelType] = true end
+	end
+
+	return perButton, all
+end
 
 -- Cure types per button plus their union, cached alongside the buff filter.
-local function GetCureTypeFilters()
-	if not CachedCureTypes then
-		local profile = Healium_GetProfile()
-
-		CachedCureTypes = {}
-		CachedAllCureTypes = {}
-
-		for i = 1, Healium_MaxButtons do
-			CachedCureTypes[i] = GetConfiguredCureTypes(profile, i)
-			for dispelType in pairs(CachedCureTypes[i]) do CachedAllCureTypes[dispelType] = true end
+-- Hostile frames read the offensive set.
+local function GetCureTypeFilters(frame)
+	if frame and frame.isHostile then
+		if not CachedHostileCureTypes then
+			CachedHostileCureTypes, CachedAllHostileCureTypes =
+				BuildCureTypeFilters(Healium_GetHostileProfile(), GetConfiguredOffensiveCureTypes)
 		end
+		return CachedHostileCureTypes, CachedAllHostileCureTypes
+	end
+
+	if not CachedCureTypes then
+		CachedCureTypes, CachedAllCureTypes = BuildCureTypeFilters(Healium_GetProfile(), GetConfiguredCureTypes)
 	end
 
 	return CachedCureTypes, CachedAllCureTypes
+end
+
+-- Debuffs on friends, buffs on enemies.  12.1 extended RAID_PLAYER_DISPELLABLE
+-- to helpful auras on enemies that a raid member can dispel or steal.
+local function GetDebuffSlotFilter(frame)
+	if frame and frame.isHostile then
+		return "HELPFUL|RAID_PLAYER_DISPELLABLE"
+	end
+	return "HARMFUL|RAID_PLAYER_DISPELLABLE"
 end
 
 local function CreateDebuffAuraContainer(frame, unit)
@@ -420,9 +453,10 @@ local function CreateDebuffAuraContainer(frame, unit)
 	container:SetUnit(unit)
 	frame.DebuffButtonBorderTextures = {}
 	frame.DebuffButtonIconHolders = {}
-	local configuredTypes, allCureTypes = GetCureTypeFilters()
+	local configuredTypes, allCureTypes = GetCureTypeFilters(frame)
+	local slotFilter = GetDebuffSlotFilter(frame)
 
-	local healthSlot = container:AddAuraSlot(HealthDebuffSlotKey, "HARMFUL|RAID_PLAYER_DISPELLABLE", {
+	local healthSlot = container:AddAuraSlot(HealthDebuffSlotKey, slotFilter, {
 		candidateFilters = { includeDispelTypes = Healium.EnableDebufs and allCureTypes or {} },
 		initializeFrame = InitializeHealthDebuffButton(frame),
 	})
@@ -432,7 +466,7 @@ local function CreateDebuffAuraContainer(frame, unit)
 	frame.DebuffButtonAuraButtons = {}
 	for i = 1, Healium_MaxButtons do
 		local slotKey = "HealiumCureDebuff" .. i
-		local auraButton = container:AddAuraSlot(slotKey, "HARMFUL|RAID_PLAYER_DISPELLABLE", {
+		local auraButton = container:AddAuraSlot(slotKey, slotFilter, {
 			candidateFilters = { includeDispelTypes = Healium.EnableDebufs and configuredTypes[i] or {} },
 			initializeFrame = InitializeCureDebuffButton(frame, i),
 		})
@@ -453,6 +487,13 @@ GetConfiguredCureTypes = function(profile, index)
 	return Healium_GetCureDispelTypes(profile.SpellNames[index]) or {}
 end
 
+GetConfiguredOffensiveCureTypes = function(profile, index)
+	if not profile or not profile.SpellNames then return {} end
+	local spellType = profile.SpellTypes and profile.SpellTypes[index]
+	if spellType ~= nil and spellType ~= Healium_Type_Spell then return {} end
+	return Healium_GetOffensiveDispelTypes(profile.SpellNames[index]) or {}
+end
+
 local function RefreshFrameAuraContainers(frame)
 	if not frame or not frame.TargetUnit or not Healium_UsesAuraContainers() then return end
 	if not frame.buttons or not frame.buttons[1] then
@@ -461,16 +502,19 @@ local function RefreshFrameAuraContainers(frame)
 	end
 	local unit = frame.TargetUnit
 	local ok, created
-	if not frame.BuffAuraContainer then
-		ok, created = pcall(CreateBuffAuraContainer, frame, unit)
-	end
-	if not frame.BuffAuraContainer and (not ok or not created) then
-		if not AuraContainerFailureReported then
-			Healium_Warn("Retail buff Aura Container initialization failed: " .. tostring(created))
-			AuraContainerFailureReported = true
+	-- Hostile frames show no player buffs, so they get no buff container.
+	if not frame.isHostile then
+		if not frame.BuffAuraContainer then
+			ok, created = pcall(CreateBuffAuraContainer, frame, unit)
 		end
-		QueueAuraContainerRefresh(frame)
-		return
+		if not frame.BuffAuraContainer and (not ok or not created) then
+			if not AuraContainerFailureReported then
+				Healium_Warn("Retail buff Aura Container initialization failed: " .. tostring(created))
+				AuraContainerFailureReported = true
+			end
+			QueueAuraContainerRefresh(frame)
+			return
+		end
 	end
 	if not frame.DebuffAuraContainer then
 		ok, created = pcall(CreateDebuffAuraContainer, frame, unit)
@@ -484,16 +528,21 @@ local function RefreshFrameAuraContainers(frame)
 		return
 	end
 
-	local buffOK = SafeAuraContainerCall(frame.BuffAuraContainer, frame.BuffAuraContainer.SetUnit, unit)
+	local buffOK = true
+	if frame.BuffAuraContainer then
+		buffOK = SafeAuraContainerCall(frame.BuffAuraContainer, frame.BuffAuraContainer.SetUnit, unit)
+	end
 	local debuffOK = SafeAuraContainerCall(frame.DebuffAuraContainer, frame.DebuffAuraContainer.SetUnit, unit)
 	if not buffOK or not debuffOK then QueueAuraContainerRefresh(frame) end
 
 	if not InCombatLockdown() and not AurasAreRestricted() then
-		frame.BuffAuraContainer:SetAuraGroupCandidateFilters(BuffAuraGroupKey,
-			{ includeSpellIDs = GetPlayerBuffSpellFilter() })
-		frame.BuffAuraContainer:SetEnabled(Healium.ShowBuffs and true or false)
+		if frame.BuffAuraContainer then
+			frame.BuffAuraContainer:SetAuraGroupCandidateFilters(BuffAuraGroupKey,
+				{ includeSpellIDs = GetPlayerBuffSpellFilter() })
+			frame.BuffAuraContainer:SetEnabled(Healium.ShowBuffs and true or false)
+		end
 
-		local configuredTypes, allCureTypes = GetCureTypeFilters()
+		local configuredTypes, allCureTypes = GetCureTypeFilters(frame)
 
 		for i = 1, Healium_MaxButtons do
 			frame.DebuffAuraContainer:SetAuraSlotCandidateFilters("HealiumCureDebuff" .. i,
@@ -529,7 +578,7 @@ function Healium_RefreshAuraContainers()
 		-- QueueAuraContainerRefresh would then refuse to queue it ever again.
 		frame.AuraContainerRefreshPending = nil
 		RefreshFrameAuraContainers(frame)
-		if frame.BuffAuraContainer and frame.DebuffAuraContainer then initialized = true end
+		if (frame.isHostile or frame.BuffAuraContainer) and frame.DebuffAuraContainer then initialized = true end
 	end
 
 	-- A failing frame would have asked for another attempt while looping, so
