@@ -1,3 +1,10 @@
+3.5.7
+* Retail: Fixed a Lua error when hovering a heal button whose unit has a secret name.  Midnight can make unit names secret, and the Target line of the tooltip was built by joining that name into a string, which is not allowed.
+* Retail: The mana bar now handles a secret dead or ghost state, and no longer greys itself out when the power type is secret rather than known to be something other than mana.
+* Retail: The threat indicator no longer compares a threat status that may be secret.
+* Retail: /hlm friends add now says the name is unavailable instead of failing when the target name is secret.
+* Retail and Classic: The minimap button no longer creates two textures under the global name icon, which could collide with other addons.
+
 3.5.6
 * Retail and Classic: Fixed Toggle Frames in the minimap menu only ever hiding the frames.  The menu passes its button as the first argument, which Healium_ToggleAllFrames read as a request to force hiding, so the entry could never bring the frames back.  The /hlm toggle command was not affected.
 * Retail and Classic: Fixed deleting a button leaving a copy of the last spell behind, which reappeared as a duplicate the next time the button count was raised.  Deleting the only button left it in place entirely.

@@ -231,6 +231,12 @@ function Healium_DebugPrint(...)
     Healium_Print(result)
 end
 
+-- issecretvalue() only exists from 12.0 onwards.  Files other than this one
+-- go through this helper so they stay loadable on an older client.
+function Healium_IsSecret(value)
+	return issecretvalue ~= nil and issecretvalue(value) or false
+end
+
 function Healium_Warn(msg)
 	DEFAULT_CHAT_FRAME:AddMessage("|CFFFF0000Warning|r: " .. tostring(msg))		
 end
@@ -413,7 +419,9 @@ function Healium_UpdateUnitMana(unitName, NamePlate)
 
 	if Healium_Debug then Healium_DebugPrint("Mana: ", Mana, " MaxMana: ", MaxMana) end
 	
-	if UnitIsDeadOrGhost(unitName) then
+	-- Guarded the same way Healium_UpdateUnitHealth already does.
+	local deadOrGhost = UnitIsDeadOrGhost(unitName)
+	if not issecretvalue(deadOrGhost) and deadOrGhost then
 		Mana = 0
 	end
 	
@@ -426,7 +434,10 @@ function Healium_UpdateUnitMana(unitName, NamePlate)
 		-- This check here prevents stuff like showing gray bar for yourself if you are elemental shaman
 	else
 		local _, powerType = UnitPowerType(unitName)
-		if powerType ~= "MANA" then 
+
+		-- When the power type is secret we cannot tell, so leave the bar as it
+		-- is rather than greying it out on a guess.
+		if not issecretvalue(powerType) and powerType ~= "MANA" then 
 			grayBar = true
 		end
 	end
@@ -522,6 +533,13 @@ function Healium_UpdateUnitThreat(unitName, NamePlate)
 	end
 	
 	local status = UnitThreatSituation(unitName)
+
+	-- A secret status cannot be compared, so show no threat rather than
+	-- throwing, the same way the role code does.
+	if issecretvalue(status) then
+		NamePlate.AggroBar:SetAlpha(0)
+		return
+	end
 
 	if status and status > 1 then 
 		local r, g, b
