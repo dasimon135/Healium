@@ -3,7 +3,8 @@ local CanCureDisease = false
 local CanCurePoison = false
 local CanCureCurse = false
 
-local Cures = { } 
+local Cures = { }
+local OffensiveCures = { }
 local CuresCount = 0
 
 local function AddSpell(spellID)
@@ -32,7 +33,7 @@ function Healium_InitSpells(class, race)
 	Healium_Spell.ID = {}
 	
 	Cures = {}
-	
+	OffensiveCures = {}
 
 	-- Init spell list
 	if (class == "DRUID") then 
@@ -93,7 +94,27 @@ function Healium_InitSpells(class, race)
 		AddSpell(2006)		-- Resurrection (rez)
 		AddSpell(194509)    -- Power Word: Radiance
 		AddSpell(33206)     -- Pain Suppression
-		AddSpell(47536)     -- Rapture		
+		AddSpell(47536)     -- Rapture
+
+		-- Targeted hostile spells for the Arena frame (new in 3.7.0).  IDs
+		-- checked against Wowhead on 2026-09-06.  Psychic Scream, Mass Dispel
+		-- and Dispersion take no unit and stay out.  Anything not in the
+		-- spellbook is simply not offered.
+		AddSpell(528)		-- Dispel Magic
+		AddSpell(15487)		-- Silence
+		AddSpell(64044)		-- Psychic Horror
+		AddSpell(605)		-- Mind Control
+		AddSpell(589)		-- Shadow Word: Pain
+		AddSpell(32379)		-- Shadow Word: Death
+		AddSpell(34914)		-- Vampiric Touch
+		AddSpell(8092)		-- Mind Blast
+		AddSpell(585)		-- Smite
+		AddSpell(335467)	-- Shadow Word: Madness (was Devouring Plague)
+		AddSpell(15407)		-- Mind Flay
+		AddSpell(263165)	-- Void Torrent
+		AddSpell(73510)		-- Shadeburst (was Mind Spike)
+		AddSpell(204197)	-- Purge the Wicked
+		AddSpell(375901)	-- Mindgames
 
 		-- Priest Purify, retail version
 		CureName = Healium_GetSpellName(527)
@@ -106,11 +127,17 @@ function Healium_InitSpells(class, race)
 		
 		-- Priest Purify Disease, retail version
 		CureName = Healium_GetSpellName(213634)
-		if CureName then 
-			Cures[CureName] = { 
+		if CureName then
+			Cures[CureName] = {
 				CanCureDisease = true,
 			}
-		end	
+		end
+
+		-- Priest Dispel Magic: removes one Magic buff from an enemy
+		CureName = Healium_GetSpellName(528)
+		if CureName then
+			OffensiveCures[CureName] = { Magic = true }
+		end
 	end
 
 	if (class == "SHAMAN") then
@@ -400,5 +427,16 @@ function Healium_GetCureDispelTypes(spellName)
 	if cure.CanCureDisease then dispelTypes.Disease = true end
 	if cure.CanCurePoison then dispelTypes.Poison = true end
 	if cure.CanCureCurse then dispelTypes.Curse = true end
+	return dispelTypes
+end
+
+-- Returns the dispel types an offensive dispel removes from an enemy, for the
+-- Arena frame's Aura Containers.  Mirrors Healium_GetCureDispelTypes.
+function Healium_GetOffensiveDispelTypes(spellName)
+	local cure = spellName and OffensiveCures[spellName]
+	if not cure then return nil end
+
+	local dispelTypes = {}
+	for dispelType in pairs(cure) do dispelTypes[dispelType] = true end
 	return dispelTypes
 end

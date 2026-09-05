@@ -933,7 +933,7 @@ local function DropDownMenuItem_OnClick(dropdownbutton)
 
 	for i=1, Healium_MaxClassSpells, 1 do
 		if (dropdownbutton.owner == HealiumDropDown[i]) then
-			for j=0, Healium_MaxClassSpells - 1, 1 do
+			for j=0, #Healium_Spell.Name - 1, 1 do
 				if (dropdownbutton.value == j) then
 					Healium_SetProfileSpell(Profile, i, Healium_Spell.Name[j+1], Healium_Spell.ID[j+1], Healium_Spell.Icon[j+1], nil)
 				end

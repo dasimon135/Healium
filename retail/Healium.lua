@@ -31,7 +31,7 @@ Healium_MaxButtons = 15		-- Max Possible buttons
 Healium_AddonName = "Healium"
 Healium_AddonColor = "|cFF55AAFF"
 Healium_AddonColoredName = Healium_AddonColor .. Healium_AddonName .. "|r"
-Healium_MaxClassSpells = 20 -- For now this is manually set to the max number of class specific spells in Healium_Spell.Name which currently is priest
+Healium_MaxClassSpells = 40 -- Upper bound on class specific spells in Healium_Spell.Name (priest is the largest, 36 in 3.7.0)
 
 Healium_Type_Spell = 0  -- note that nil also means Spell!  This is because we don't init the Spelltypes table.
 Healium_Type_Macro = 1
