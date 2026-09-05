@@ -759,6 +759,23 @@ local function GetSpellSlotID(spell, subtext)
 
 	Healium_DebugPrint("GetSpellSlotID: ", spell);
 
+	-- Blizzard's own lookup understands spells that are listed more than once in
+	-- the spellbook (the same heal also appearing under an inactive
+	-- specialisation).  The scan below cannot: it stops at the first, disabled,
+	-- copy and reports the spell as missing, which is why Flash Heal and Renew
+	-- came back with no slot on a Discipline priest.
+	if (subtext == nil or subtext == "") and C_SpellBook and C_SpellBook.FindSpellBookSlotForSpell and C_Spell and C_Spell.GetSpellInfo then
+		local info = C_Spell.GetSpellInfo(spell)
+
+		if info and info.spellID then
+			local slot = C_SpellBook.FindSpellBookSlotForSpell(info.spellID)
+
+			if slot then
+				return slot
+			end
+		end
+	end
+
 	if not SpellSlotCache then
 		SpellSlotCache = BuildSpellSlotCache()
 	end
