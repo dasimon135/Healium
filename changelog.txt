@@ -1,3 +1,7 @@
+3.5.5
+* Retail: The Button Profiles and Frame Layouts panels can no longer take the whole addon down with them.  An error while building either one used to abort the rest of the startup, leaving Healium with no slash commands, no menu and no unit frames, and with Lua errors hidden by default it just looked dead.  The class icon that could cause exactly that is now guarded, and both panels report a failure instead of stopping startup.
+* Retail: The button profile and frame layout naming dialog now accepts either name Blizzard uses for the popup edit box, instead of failing silently when saving a profile.
+
 3.5.4
 * Retail: Fixed the buff and dispel filters staying unconfigured when an Aura Container refresh had to be deferred outside combat.  The pending work was only retried when a combat ended, and a frame that failed once was latched in a state that prevented it from ever being queued again.
 
