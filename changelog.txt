@@ -1,3 +1,7 @@
+3.5.6
+* Retail and Classic: Fixed Toggle Frames in the minimap menu only ever hiding the frames.  The menu passes its button as the first argument, which Healium_ToggleAllFrames read as a request to force hiding, so the entry could never bring the frames back.  The /hlm toggle command was not affected.
+* Retail and Classic: Fixed deleting a button leaving a copy of the last spell behind, which reappeared as a duplicate the next time the button count was raised.  Deleting the only button left it in place entirely.
+
 3.5.5
 * Retail: The Button Profiles and Frame Layouts panels can no longer take the whole addon down with them.  An error while building either one used to abort the rest of the startup, leaving Healium with no slash commands, no menu and no unit frames, and with Lua errors hidden by default it just looked dead.  The class icon that could cause exactly that is now guarded, and both panels report a failure instead of stopping startup.
 * Retail: The button profile and frame layout naming dialog now accepts either name Blizzard uses for the popup edit box, instead of failing silently when saving a profile.
