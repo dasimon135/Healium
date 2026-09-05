@@ -973,8 +973,6 @@ function Healium_CreateConfigPanel(Class, Version)
 	local panel = CreateFrame("Frame", nil, UIParent)
 	Healium_ConfigPanel = panel
 	panel.name = Healium_AddonName
-	panel.okay = function (frame)frame.originalValue = MY_VARIABLE end    -- [[ When the player clicks okay, set the original value to the current setting ]] --
-	panel.cancel = function (frame) MY_VARIABLE = frame.originalValue end    -- [[ When the player clicks cancel, set the current setting to the original value ]] --
 	
 	local layout
 	Healium_ConfigPanel_Category, layout = Settings.RegisterCanvasLayoutCategory(panel, panel.name);
