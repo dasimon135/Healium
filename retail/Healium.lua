@@ -1010,6 +1010,19 @@ function Healium_UpdateButtonIcon(button, texture)
 	else
 		button.icon:SetTexture("Interface/Icons/INV_Misc_QuestionMark")
 	end		
+
+	-- A spell button with no spellbook slot cannot be looked up, range
+	-- checked or shown in a tooltip, so grey it out instead of leaving it
+	-- looking like a working button.
+	local Profile = Healium_GetProfile()
+	local stype = Profile.SpellTypes[button.index]
+
+	if texture and (stype == nil or stype == Healium_Type_Spell) and not Profile.IDs[button.index] then
+		button.icon.disabled = true
+		button.icon:SetVertexColor(0.4, 0.4, 0.4)
+	else
+		button.icon:SetVertexColor(1.0, 1.0, 1.0)
+	end
 end
 
 function Healium_UpdateButtonIcons()
