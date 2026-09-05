@@ -36,7 +36,7 @@ function Healium_HealButton_OnEnter(frame, motion)
 		GameTooltip_SetDefaultAnchor(GameTooltip, frame)	
 		GameTooltip:SetSpellBookItem(frame.id, Enum.SpellBookSpellBank.Player)
 
-		local Profile = Healium_GetProfile()
+		local Profile = Healium_GetProfileForButton(frame)
 		local rank = Profile.SpellRanks[frame.index]
 		if rank then 
 			GameTooltip:AddLine(Healium_AddonColor .. rank .. "|r",1,1,1)
@@ -61,7 +61,7 @@ function Healium_HealButton_OnEnter(frame, motion)
 		if not UnitExists(unit) then return end
 		AddTargetLine(unit)
 	else
-		local Profile = Healium_GetProfile()
+		local Profile = Healium_GetProfileForButton(frame)
 		local spellName = Profile.SpellNames[frame.index]
 
 		if spellName and (stype == "spell") then
@@ -144,7 +144,7 @@ local function Drag(frame)
 		return
 	end
 
-	local Profile = Healium_GetProfile()
+	local Profile = Healium_GetProfileForButton(frame)
 	local infoType, info1, info2, info3 = GetCursorInfo()
 	Healium_DebugPrint("infoType:", infoType, "info1:", info1, "info2:", info2, "info3:", info3 )
 	local old = GetOldSpell(frame.index, Profile)
@@ -215,7 +215,7 @@ function Healium_HealButton_OnDragStart(frame)
 	-- starting drag requires shift to be pressed
 	if IsShiftKeyDown() == nil then return end
 	
-	local Profile = Healium_GetProfile()
+	local Profile = Healium_GetProfileForButton(frame)
 	local old = GetOldSpell(frame.index, Profile)
 	
 	PickupOldSpell(old)
