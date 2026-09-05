@@ -54,8 +54,16 @@ function Healium_HealButton_OnEnter(frame, motion)
 		if (not Name) then Name = "-" end
         GameTooltip:AddLine("Target: |cFF00FF00"..Name,1,1,1)			
 	else
-		-- Safely Handle Empty Buttons	
-		GameTooltip:SetText("|cFFFFFFFFNo Spell|n|cFF00FF00You may drag-and-drop a spell from your|nspellbook onto this button, or you may go|nto Game Menu, Interface, Addons, " ..Healium_AddonName .. " and|nselect your spells from the list.")
+		local Profile = Healium_GetProfile()
+		local spellName = Profile.SpellNames[frame.index]
+
+		if spellName and (stype == "spell") then
+			-- Configured, but no spellbook slot was found for it.
+			GameTooltip:SetText("|cFFFFFFFF" .. spellName .. "|n|cFFFF8080" .. Healium_AddonName .. " cannot find this spell in your|nspellbook.  It may belong to another|nspecialization, or you may not have learned it yet.")
+		else
+			-- Safely Handle Empty Buttons	
+			GameTooltip:SetText("|cFFFFFFFFNo Spell|n|cFF00FF00You may drag-and-drop a spell from your|nspellbook onto this button, or you may go|nto Game Menu, Interface, Addons, " ..Healium_AddonName .. " and|nselect your spells from the list.")
+		end
     end
 	
 	GameTooltip:Show()			

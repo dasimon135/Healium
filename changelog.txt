@@ -1,3 +1,6 @@
+3.5.3
+* Retail: A button whose spell cannot be found in your spellbook is now greyed out instead of looking like a working button, and its tooltip names the spell and says why it is unavailable rather than claiming the button is empty.
+
 3.5.2
 * Retail and Classic: Fixed buttons that had no tooltip, no range check and no mana colouring when the spell is also listed under an inactive specialisation (Flash Heal and Renew on a Discipline priest, for example).  The spellbook lookup stopped at the disabled copy of the spell and reported it as missing; it now asks the game for the slot directly.
 
