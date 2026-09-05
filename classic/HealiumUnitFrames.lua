@@ -113,7 +113,9 @@ function Healium_InitDebuffSound()
 end
 
 function Healium_PlayDebuffSound()
-	Healium_DebugPrint("playing sound " .. DebuffSoundPath)
+	if not DebuffSoundPath then return end
+
+	if Healium_Debug then Healium_DebugPrint("playing sound " .. DebuffSoundPath) end
 	PlaySoundFile(DebuffSoundPath)	
 end
 
