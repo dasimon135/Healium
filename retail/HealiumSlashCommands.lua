@@ -136,10 +136,16 @@ local function GetFriendsTarget(args)
 	if args == nil then
 		local realm
 		friend, realm  = UnitName("Target")
-		if realm ~= nil then
-			if realm:len() > 0 then
-				friend = friend .. "-" .. realm
-			end
+
+		-- A secret name cannot be stored or compared, so there is nothing
+		-- usable to add to the friends list.
+		if Healium_IsSecret(friend) then
+			Healium_Warn("That unit's name is not available right now.")
+			return nil
+		end
+
+		if realm ~= nil and not Healium_IsSecret(realm) and realm:len() > 0 then
+			friend = friend .. "-" .. realm
 		end
 	end
 	

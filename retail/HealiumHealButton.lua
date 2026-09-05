@@ -15,6 +15,18 @@ function Healium_HealButton_OnUpdate(frame, elapsed)
 	end
 end
 
+-- UnitName() can return a secret value.  It may be handed to a widget, but
+-- never concatenated in Lua, so it cannot go into this line as-is.
+local function AddTargetLine(unit)
+	local name = UnitName(unit)
+
+	if name == nil or Healium_IsSecret(name) then
+		name = "-"
+	end
+
+	GameTooltip:AddLine("Target: |cFF00FF00" .. name, 1, 1, 1)
+end
+
 function Healium_HealButton_OnEnter(frame, motion)
 	if (not Healium.ShowToolTips) then return end	
     GameTooltip:SetOwner(frame, "ANCHOR_RIGHT", -30, 5)
@@ -31,28 +43,23 @@ function Healium_HealButton_OnEnter(frame, motion)
 		end
 		local unit = frame:GetParent().TargetUnit
 		if not UnitExists(unit) then return end
-		local Name = UnitName(unit)
-		if (not Name) then Name = "-" end
-        GameTooltip:AddLine("Target: |cFF00FF00"..Name,1,1,1)
+		AddTargetLine(unit)
 		if Healium_Debug then 
-			GameTooltip:AddLine("icon = " .. frame.icon:GetTexture())
+			local iconTexture = frame.icon:GetTexture()
+			if iconTexture then GameTooltip:AddLine("icon = " .. tostring(iconTexture)) end
 		end
 	elseif frame.id and (stype == "item") then
 		GameTooltip_SetDefaultAnchor(GameTooltip, frame)	
 		GameTooltip:SetHyperlink("item:"..frame.id)
 		local unit = frame:GetParent().TargetUnit
 		if not UnitExists(unit) then return end
-		local Name = UnitName(unit)
-		if (not Name) then Name = "-" end
-        GameTooltip:AddLine("Target: |cFF00FF00"..Name,1,1,1)	
+		AddTargetLine(unit)
 	elseif (stype == "macro") then 
 		GameTooltip_SetDefaultAnchor(GameTooltip, frame)	
-		GameTooltip:AddLine("Macro: " .. frame:GetAttribute("macro"))
+		GameTooltip:AddLine("Macro: " .. tostring(frame:GetAttribute("macro")))
 		local unit = frame:GetParent().TargetUnit
 		if not UnitExists(unit) then return end
-		local Name = UnitName(unit)
-		if (not Name) then Name = "-" end
-        GameTooltip:AddLine("Target: |cFF00FF00"..Name,1,1,1)			
+		AddTargetLine(unit)
 	else
 		local Profile = Healium_GetProfile()
 		local spellName = Profile.SpellNames[frame.index]

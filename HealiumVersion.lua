@@ -1,1 +1,1 @@
-Healium_Version = "|cFFFFFF00 3.5.6|r"
+Healium_Version = "|cFFFFFF00 3.5.7|r"
