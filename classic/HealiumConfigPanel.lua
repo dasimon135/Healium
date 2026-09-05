@@ -415,12 +415,18 @@ function Healium_CreateConfigPanel(Class, Version)
 	HealiumClassIconTexture = HealiumClassIcon:CreateTexture(nil, "BACKGROUND")
 	HealiumClassIconTexture:SetAllPoints()
 	HealiumClassIconTexture:SetTexture("Interface/Glues/CHARACTERCREATE/UI-CHARACTERCREATE-CLASSES")
-	local coords = CLASS_ICON_TCOORDS[Class];
-	HealiumClassIconTexture:SetTexCoord(coords[1], coords[2], coords[3], coords[4]);	
+	-- Decorative only, but this runs before the slash commands, the menu and
+	-- the unit frames are created: an error here would take all of them with it.
+	local coords = Class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[Class];
+	if coords then
+		HealiumClassIconTexture:SetTexCoord(coords[1], coords[2], coords[3], coords[4]);
+	else
+		HealiumClassIconTexture:Hide();
+	end
 	HealiumClassIcon:SetHeight(60)
 	HealiumClassIcon:SetWidth(60)
 	HealiumClassIcon.Text = HealiumClassIcon:CreateFontString(nil, "OVERLAY","GameFontNormalLarge")
-	HealiumClassIcon.Text:SetText(strupper(Class))
+	HealiumClassIcon.Text:SetText(Class and strupper(Class) or "")
 	HealiumClassIcon.Text:SetPoint("CENTER",0,-38)
 	HealiumClassIcon.Text:SetTextColor(1,1,0.2,1)
 

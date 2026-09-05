@@ -1,3 +1,7 @@
+3.5.9
+* Retail and Classic: The class icon on the options panel is now built defensively.  It runs before the slash commands, the menu and the unit frames are created, so an unguarded lookup there could abort startup and leave the addon looking absent, with the Lua error hidden by default.
+* Classic: The dispel sound no longer builds its debug message when debugging is off, and does nothing rather than failing if no sound file resolved.
+
 3.5.8
 * Classic: Fixed an error when a unit name update arrived before the unit was fully available.  The name was also forced to uppercase even with the Uppercase Names option turned off.
 * Classic: Fixed the health bar silently keeping its previous colour, instead of updating, when a unit reported a maximum health of zero.
