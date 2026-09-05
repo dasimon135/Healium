@@ -1,4 +1,5 @@
 3.6.0
+* Retail: Button profiles can now be exported to a text string and imported back, from the Button Profiles panel.  Saved profiles live in the account file, so until now a setup could not travel to another account or be shared.  The format is plain text and is parsed field by field: a pasted string is never executed as code.
 * Retail: Brought back the dispel audio warning, which retail lost when debuff detection moved to Blizzard Aura Containers.  The container never says which aura it matched, but it does show the health bar debuff button when a curable debuff is present, and that is what the warning now listens to.  Off by default; enable Audio Warning under Debuff Warnings, where the sound can also be chosen and previewed.
 
 3.5.9
