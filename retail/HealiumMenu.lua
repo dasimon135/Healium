@@ -34,6 +34,14 @@ local function ShowFocusFrame()
 	Healium_ShowHideFocusFrame(true)
 end
 
+local function ToggleAllFrames()
+	-- The dropdown calls func(button, arg1, arg2, checked), and
+	-- Healium_ToggleAllFrames reads its first argument as forceHide.  Passed
+	-- directly it therefore always received a truthy value and could only
+	-- ever hide the frames, never bring them back.
+	Healium_ToggleAllFrames()
+end
+
 local function CanConfigureButtons()
 	if InCombatLockdown() then
 		Healium_Warn("Can't configure buttons while in combat!")
@@ -161,7 +169,19 @@ local function DeleteButton(info, btnIndex)
 
 	local Profile = Healium_GetProfile()
 	RotateButtonsLeft(nil, btnIndex)
-	Profile.ButtonCount = Profile.ButtonCount - 1
+
+	-- The shift leaves a copy of the last entry behind, and with a single
+	-- button RotateButtonsLeft does nothing at all.  Clear the trailing slot,
+	-- or the deleted spell reappears as a duplicate as soon as the button
+	-- count is raised again.
+	local last = Profile.ButtonCount
+	Profile.SpellNames[last] = nil
+	Profile.SpellIcons[last] = nil
+	Profile.SpellTypes[last] = nil
+	Profile.SpellRanks[last] = nil
+	Profile.IDs[last] = nil
+
+	Profile.ButtonCount = math.max(last - 1, 0)
 
 	Healium_Update_ConfigPanel()	
 	Healium_UpdateButtonIcons()
@@ -223,7 +243,7 @@ local function HealiumMenu_InitializeDropDown(frame,level)
 				{
 					text = "Toggle Frames",
 					notCheckable = 1,
-					func = Healium_ToggleAllFrames,
+					func = ToggleAllFrames,
 				},
 				{	-- Party Frame
 					text = "Show Party",
