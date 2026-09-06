@@ -4,12 +4,16 @@ Date: 2026-09-06. Scope: `retail/` only (Midnight 12.1). `classic/` is untouched
 
 ## Goal
 
-Give a Shadow / Discipline priest playing arena (Solo Shuffle, 2v2, 3v3) a
-Healium frame per arena opponent carrying a row of *offensive* secure buttons
-(Dispel Magic, Silence, Mind Control, dots…), with the Dispel Magic button lit
-by Blizzard when the opponent carries a buff the priest can dispel. Party
-frames keep the existing defensive buttons. The profile switches with the
+Give a player in arena (Solo Shuffle, 2v2, 3v3) a Healium row per arena
+opponent carrying *offensive* secure buttons, with the dispel button lit by
+Blizzard when that opponent carries a buff the player can strip. Party frames
+keep the existing defensive buttons, and the set in use switches with the
 spec, as today.
+
+The feature was first drafted for a Shadow / Discipline priest, but Healium is
+a general addon, so nothing in it is class-specific: the frame, the profiles
+and the filters are neutral, and the offered spell list covers all thirteen
+classes.
 
 ## Why this shape
 
@@ -63,14 +67,18 @@ upstream; a priest feature would diverge it for good).
   and the slot-ID refresh in `Healium_UpdateButtonAttributes` go through it.
   Button visibility / count for a hostile frame reads the hostile
   `ButtonCount`. The secure-button mechanism itself is unchanged.
-- `HealiumSpells.lua`: the PRIEST list gains the targeted hostile spells
-  (Dispel Magic, Silence, Psychic Horror, Mind Control, Shadow Word: Pain,
-  Shadow Word: Death, Vampiric Touch, Mind Blast, Smite, Penance, plus any
-  12.1-current Discipline offensive spell confirmed by ID). Non-targeted
-  spells (Psychic Scream, Mass Dispel, Dispersion) stay out. IDs are verified
-  against an external source before being written, and `GetSpellSlotID`
-  already ignores spells missing from the spellbook. The mechanism is class
-  agnostic; only the priest list ships in this version.
+- `HealiumSpells.lua`: hostile spells go into their own list,
+  `Healium_HostileSpell`, never into `Healium_Spell`. One flat list would make
+  the party frame dropdowns offer Polymorph, which is wrong. `Healium_GetSpellList(hostile)`
+  picks between them and the config panel passes its Button Set selection.
+  The hostile list covers all thirteen classes, not just the priest: the Arena
+  frame is class-neutral, so its spell list has to be too. The rule for what
+  goes in is the same everywhere, offensive dispel, interrupt, targeted crowd
+  control, and debuffs applied to a second enemy. Damage rotations belong on
+  the action bars, area effects have no unit to target from a frame, and
+  anything left out can still be dragged from the spellbook. Every ID is
+  verified against Wowhead for 12.1 before being written, and `GetSpellSlotID`
+  ignores spells missing from the spellbook.
 - Config panel: on the Button Profiles sub-panel a "Friendly / Arena" selector
   chooses which set the existing editor edits. Named class profiles
   (`HealiumGlobal.ClassProfiles`) save and load both sets.
@@ -84,8 +92,11 @@ upstream; a priest feature would diverge it for good).
   button handles; Blizzard drops the debuff icon on the matching button. The
   addon never reads the aura; it only learns of it through the aura button's
   `OnShow`, which fires the 3.6.0 audio warning.
-- Mirror for hostile frames: `Healium_OffensiveCures` in `HealiumSpells.lua`
-  maps Dispel Magic → `{ Magic }`. A hostile frame's container declares its
+- Mirror for hostile frames: an `OffensiveCures` table in `HealiumSpells.lua`,
+  read through `Healium_GetOffensiveDispelTypes`, maps the five enemy Magic
+  dispels (Dispel Magic, Purge, Spellsteal, Consume Magic, Tranquilizing Shot)
+  to `{ Magic }`. Enrage-only removals such as Soothe and Shiv are absent on
+  purpose, since no aura filter can match them. A hostile frame's container declares its
   slots with `HELPFUL|RAID_PLAYER_DISPELLABLE` (12.1 extended that filter to
   helpful auras on enemies dispellable / stealable by a raid member),
   restricted to the offensive-cure types. Result: the enemy buff icon lands on

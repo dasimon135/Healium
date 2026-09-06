@@ -12,6 +12,26 @@ local function AddSpell(spellID)
 	table.insert(Healium_Spell.Name, name)
 end
 
+-- Spells cast on an enemy, offered on the Arena frame's buttons only.
+-- An unknown ID simply adds nothing, rather than leaving a nameless entry.
+local function AddHostileSpell(spellID)
+	local name = Healium_GetSpellName(spellID)
+	if name then
+		table.insert(Healium_HostileSpell.Name, name)
+	end
+end
+
+-- An offensive dispel, keyed by spell name like Cures, mapping to the aura
+-- dispel types it strips from an enemy.  Only the four types the Aura
+-- Container filters understand are useful here, so Enrage-only removals
+-- (Soothe, Shiv) are deliberately absent: they would never match.
+local function AddOffensiveCure(spellID, dispelTypes)
+	local name = Healium_GetSpellName(spellID)
+	if name then
+		OffensiveCures[name] = dispelTypes
+	end
+end
+
 local function Count(tab)
 	local cnt = 0
 	
@@ -31,7 +51,11 @@ function Healium_InitSpells(class, race)
 	Healium_Spell.Name = {}
 	Healium_Spell.Icon = {}
 	Healium_Spell.ID = {}
-	
+
+	Healium_HostileSpell.Name = {}
+	Healium_HostileSpell.Icon = {}
+	Healium_HostileSpell.ID = {}
+
 	Cures = {}
 	OffensiveCures = {}
 
@@ -96,26 +120,6 @@ function Healium_InitSpells(class, race)
 		AddSpell(33206)     -- Pain Suppression
 		AddSpell(47536)     -- Rapture
 
-		-- Targeted hostile spells for the Arena frame (new in 3.7.0).  IDs
-		-- checked against Wowhead on 2026-09-06.  Psychic Scream, Mass Dispel
-		-- and Dispersion take no unit and stay out.  Anything not in the
-		-- spellbook is simply not offered.
-		AddSpell(528)		-- Dispel Magic
-		AddSpell(15487)		-- Silence
-		AddSpell(64044)		-- Psychic Horror
-		AddSpell(605)		-- Mind Control
-		AddSpell(589)		-- Shadow Word: Pain
-		AddSpell(32379)		-- Shadow Word: Death
-		AddSpell(34914)		-- Vampiric Touch
-		AddSpell(8092)		-- Mind Blast
-		AddSpell(585)		-- Smite
-		AddSpell(335467)	-- Shadow Word: Madness (was Devouring Plague)
-		AddSpell(15407)		-- Mind Flay
-		AddSpell(263165)	-- Void Torrent
-		AddSpell(73510)		-- Shadeburst (was Mind Spike)
-		AddSpell(204197)	-- Purge the Wicked
-		AddSpell(375901)	-- Mindgames
-
 		-- Priest Purify, retail version
 		CureName = Healium_GetSpellName(527)
 		if CureName then 
@@ -133,11 +137,6 @@ function Healium_InitSpells(class, race)
 			}
 		end
 
-		-- Priest Dispel Magic: removes one Magic buff from an enemy
-		CureName = Healium_GetSpellName(528)
-		if CureName then
-			OffensiveCures[CureName] = { Magic = true }
-		end
 	end
 
 	if (class == "SHAMAN") then
@@ -217,9 +216,6 @@ function Healium_InitSpells(class, race)
 	end
 	
 	if (class == "MAGE") then
-		AddSpell(475) -- Remove Curse
-		
-		-- Retail
 		AddSpell(475) -- Remove Curse
 
 		CureName = Healium_GetSpellName(475)
@@ -306,7 +302,138 @@ function Healium_InitSpells(class, race)
 	if (race == "Draenei") then -- race isn't in all uppercase like class
 		AddSpell(59547)		-- Gift of the Naaru
 	end
-	
+
+	--[[
+	Hostile spell list, offered on the Arena frame's buttons only.
+
+	The rule for this list is deliberately narrow, and the same for every class:
+	offensive dispel, interrupt, targeted crowd control, and the debuffs you
+	apply to a second enemy.  Damage rotations belong on the action bars, and
+	area effects have no unit to be cast on from a frame.  Anything left out can
+	still be dragged from the spellbook onto a button, which works for any spell.
+
+	Spell IDs checked against Wowhead for retail 12.1 on 2026-09-06.  A spell the
+	character has not learned is skipped when the spellbook is scanned, so a
+	spell that later moves or is removed just stops being offered.
+	]]
+	if (class == "DEATHKNIGHT") then
+		AddHostileSpell(47528)		-- Mind Freeze
+		AddHostileSpell(47476)		-- Strangulate
+		AddHostileSpell(221562)		-- Asphyxiate
+		AddHostileSpell(45524)		-- Chains of Ice
+		AddHostileSpell(49576)		-- Death Grip
+	end
+
+	if (class == "DEMONHUNTER") then
+		AddHostileSpell(183752)		-- Disrupt
+		AddHostileSpell(278326)		-- Consume Magic
+		AddHostileSpell(217832)		-- Imprison
+		AddHostileSpell(211881)		-- Fel Eruption
+
+		AddOffensiveCure(278326, { Magic = true })
+	end
+
+	if (class == "DRUID") then
+		AddHostileSpell(106839)		-- Skull Bash
+		AddHostileSpell(78675)		-- Solar Beam
+		AddHostileSpell(2908)		-- Soothe (Enrage only, so no offensive cure entry)
+		AddHostileSpell(33786)		-- Cyclone
+		AddHostileSpell(339)		-- Entangling Roots
+		AddHostileSpell(2637)		-- Hibernate
+		AddHostileSpell(8921)		-- Moonfire
+	end
+
+	if (class == "EVOKER") then
+		AddHostileSpell(351338)		-- Quell
+		AddHostileSpell(360806)		-- Sleep Walk
+		AddHostileSpell(358385)		-- Landslide
+	end
+
+	if (class == "HUNTER") then
+		AddHostileSpell(147362)		-- Counter Shot
+		AddHostileSpell(187707)		-- Muzzle
+		AddHostileSpell(19801)		-- Tranquilizing Shot
+		AddHostileSpell(19577)		-- Intimidation
+		AddHostileSpell(1513)		-- Scare Beast
+		AddHostileSpell(5116)		-- Concussive Shot
+
+		-- Tranquilizing Shot removes an Enrage and a Magic effect; only the
+		-- Magic half can be matched by an aura filter.
+		AddOffensiveCure(19801, { Magic = true })
+	end
+
+	if (class == "MAGE") then
+		AddHostileSpell(2139)		-- Counterspell
+		AddHostileSpell(30449)		-- Spellsteal
+		AddHostileSpell(118)		-- Polymorph
+
+		AddOffensiveCure(30449, { Magic = true })
+	end
+
+	if (class == "MONK") then
+		AddHostileSpell(116705)		-- Spear Hand Strike
+		AddHostileSpell(115078)		-- Paralysis
+		AddHostileSpell(116095)		-- Disable
+	end
+
+	if (class == "PALADIN") then
+		AddHostileSpell(96231)		-- Rebuke
+		AddHostileSpell(853)		-- Hammer of Justice
+		AddHostileSpell(20066)		-- Repentance
+		AddHostileSpell(10326)		-- Turn Evil
+	end
+
+	if (class == "PRIEST") then
+		AddHostileSpell(528)		-- Dispel Magic
+		AddHostileSpell(15487)		-- Silence
+		AddHostileSpell(64044)		-- Psychic Horror
+		AddHostileSpell(605)		-- Mind Control
+		AddHostileSpell(589)		-- Shadow Word: Pain
+		AddHostileSpell(34914)		-- Vampiric Touch
+		AddHostileSpell(204197)		-- Purge the Wicked
+		AddHostileSpell(375901)		-- Mindgames
+
+		AddOffensiveCure(528, { Magic = true })
+	end
+
+	if (class == "ROGUE") then
+		AddHostileSpell(1766)		-- Kick
+		AddHostileSpell(2094)		-- Blind
+		AddHostileSpell(6770)		-- Sap
+		AddHostileSpell(1833)		-- Cheap Shot
+		AddHostileSpell(408)		-- Kidney Shot
+		AddHostileSpell(703)		-- Garrote
+		AddHostileSpell(5938)		-- Shiv (Enrage only, so no offensive cure entry)
+	end
+
+	if (class == "SHAMAN") then
+		AddHostileSpell(57994)		-- Wind Shear
+		AddHostileSpell(370)		-- Purge
+		AddHostileSpell(51514)		-- Hex
+		AddHostileSpell(188389)		-- Flame Shock
+		AddHostileSpell(196840)		-- Frost Shock
+
+		AddOffensiveCure(370, { Magic = true })
+	end
+
+	if (class == "WARLOCK") then
+		AddHostileSpell(5782)		-- Fear
+		AddHostileSpell(710)		-- Banish
+		AddHostileSpell(6789)		-- Mortal Coil
+		AddHostileSpell(1714)		-- Curse of Tongues
+		AddHostileSpell(702)		-- Curse of Weakness
+		AddHostileSpell(172)		-- Corruption
+		AddHostileSpell(980)		-- Agony
+		AddHostileSpell(30108)		-- Unstable Affliction
+	end
+
+	if (class == "WARRIOR") then
+		AddHostileSpell(6552)		-- Pummel
+		AddHostileSpell(107570)		-- Storm Bolt
+		AddHostileSpell(1715)		-- Hamstring
+		AddHostileSpell(64382)		-- Shattering Throw
+	end
+
 	CuresCount = Count(Cures)
 end
 
