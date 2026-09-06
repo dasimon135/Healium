@@ -986,11 +986,16 @@ local function DropDownMenuItem_OnClick(dropdownbutton)
 --		Healium_SetProfileSpell(Profile, i, nil, nil, nil)
 	end
 
-	for i=1, Healium_MaxClassSpells, 1 do
+	local spellList = Healium_GetSpellList(EditingHostileProfile)
+
+	-- One dropdown per button, so the search is bounded by the button count.
+	-- It used to run to Healium_MaxClassSpells, a spell count, which had nothing
+	-- to do with how many dropdowns exist.
+	for i=1, Healium_MaxButtons, 1 do
 		if (dropdownbutton.owner == HealiumDropDown[i]) then
-			for j=0, #Healium_Spell.Name - 1, 1 do
+			for j=0, #spellList.Name - 1, 1 do
 				if (dropdownbutton.value == j) then
-					Healium_SetProfileSpell(Profile, i, Healium_Spell.Name[j+1], Healium_Spell.ID[j+1], Healium_Spell.Icon[j+1], nil)
+					Healium_SetProfileSpell(Profile, i, spellList.Name[j+1], spellList.ID[j+1], spellList.Icon[j+1], nil)
 				end
 			end
 		end
@@ -1008,25 +1013,26 @@ local function DropDownMenu_Init(frame,level)
 	
 	local DropDown = frame
 	local spell = Lib_UIDropDownMenu_GetText(DropDown)
-	
-	for k, v in ipairs (Healium_Spell.Name) do
-		info.text = Healium_Spell.Name[k] 
+	local spellList = Healium_GetSpellList(EditingHostileProfile)
+
+	for k, v in ipairs (spellList.Name) do
+		info.text = spellList.Name[k]
 		info.value = k-1
 		info.func = DropDownMenuItem_OnClick
 		info.owner = DropDown
-		info.checked = nil 
-		info.icon = Healium_Spell.Icon[k]
+		info.checked = nil
+		info.icon = spellList.Icon[k]
 		if (info.icon) then
-			Lib_UIDropDownMenu_AddButton(info, level) 
-			if Healium_Spell.Name[k] == spell then
-				Lib_UIDropDownMenu_SetSelectedValue(DropDown , k-1)	
+			Lib_UIDropDownMenu_AddButton(info, level)
+			if spellList.Name[k] == spell then
+				Lib_UIDropDownMenu_SetSelectedValue(DropDown , k-1)
 			end
 		end
 	end
-	
+
 	-- Add No Spell
 	info.text = "No Spell"
-	info.value = #Healium_Spell.Name
+	info.value = #spellList.Name
 	info.func = DropDownMenuItem_OnClick
 	info.ownder = DropDown
 	info.checked = (spell == nil) or (spell == "No Spell")

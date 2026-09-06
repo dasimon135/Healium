@@ -31,7 +31,6 @@ Healium_MaxButtons = 15		-- Max Possible buttons
 Healium_AddonName = "Healium"
 Healium_AddonColor = "|cFF55AAFF"
 Healium_AddonColoredName = Healium_AddonColor .. Healium_AddonName .. "|r"
-Healium_MaxClassSpells = 40 -- Upper bound on class specific spells in Healium_Spell.Name (priest is the largest, 36 in 3.7.0)
 
 Healium_Type_Spell = 0  -- note that nil also means Spell!  This is because we don't init the Spelltypes table.
 Healium_Type_Macro = 1
@@ -142,11 +141,28 @@ These only contain specifically selected spells in HealiumSpells.lua
 The Name gets filled in in Healium_InitSpells(). Healium_UpdateSpells() will fill in the ID and Icon if
 the player actually has the spell.
 --]]
-Healium_Spell = {		
+Healium_Spell = {
   Name = {},
   Icon = {},
   ID = {} -- This is the spell SlotID (spellbook index), not the global SpellID
 }
+
+-- The same thing for spells cast on an enemy, offered on the Arena frame's
+-- buttons.  Kept apart from Healium_Spell so the friendly frames never offer
+-- Polymorph, and the Arena frame never offers Flash Heal.
+Healium_HostileSpell = {
+  Name = {},
+  Icon = {},
+  ID = {}
+}
+
+function Healium_GetSpellList(hostile)
+	if hostile then
+		return Healium_HostileSpell
+	end
+
+	return Healium_Spell
+end
 
 function Healium_GetSpellName(spellID)
 	local name = C_Spell.GetSpellName(spellID)
@@ -819,18 +835,23 @@ end
 -- Healium_UpdateButtonAttributes() or Healium_UpdateButtons().  It used to do
 -- that itself, which made SPELLS_CHANGED rebuild every button attribute (and
 -- every retail Aura Container) twice in a row.
-local function Healium_UpdateSpells()
-	for k, v in ipairs (Healium_Spell.Name) do
-		Healium_Spell.ID[k] = GetSpellSlotID(Healium_Spell.Name[k])
-		if (Healium_Spell.ID[k]) then
-			Healium_Spell.Icon[k] = C_Spell.GetSpellTexture(Healium_Spell.Name[k])
-			Healium_DebugPrint("Found ID for Spell Name: " .. Healium_Spell.Name[k] .. " ID:" .. Healium_Spell.ID[k])
-			Healium_DebugPrint("Texture: " .. Healium_Spell.Icon[k])
-		else 
-			Healium_DebugPrint("Could not find ID, Spell Name: ", Healium_Spell.Name[k])
-			Healium_Spell.Icon[k] = nil
+local function UpdateSpellList(list)
+	for k, v in ipairs (list.Name) do
+		list.ID[k] = GetSpellSlotID(list.Name[k])
+		if (list.ID[k]) then
+			list.Icon[k] = C_Spell.GetSpellTexture(list.Name[k])
+			Healium_DebugPrint("Found ID for Spell Name: " .. list.Name[k] .. " ID:" .. list.ID[k])
+			Healium_DebugPrint("Texture: " .. list.Icon[k])
+		else
+			Healium_DebugPrint("Could not find ID, Spell Name: ", list.Name[k])
+			list.Icon[k] = nil
 		end
-	end 
+	end
+end
+
+local function Healium_UpdateSpells()
+	UpdateSpellList(Healium_Spell)
+	UpdateSpellList(Healium_HostileSpell)
 end
 
 -- SPELLS_CHANGED can fire many times in a row (login, talent swaps, procs).
