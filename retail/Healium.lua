@@ -75,8 +75,6 @@ local HealiumDefaults = {
   EnableDebufHealthbarHighlighting = true,		-- Whether or not to highlight the healthbar of a player when they have a debuf which you can cure
   EnableDebufButtonHighlighting = true,			-- Whether or not to highlight buttons which are assigned a spell that can cure a debuff on a player
 	ShowDebuffIcon = true,							-- Whether or not to show the debuff icon over matching cure buttons
-  EnableDebufAudio = false,					-- Whether or not to play a sound when a unit has a debuff you can cure (off by default: new in 3.6.0)
-  DebufAudioFile = "Horde Bell",				-- Which sound to play, by name, from Healium_Sounds
   EnableDebufHealthbarColoring = false,			-- Whether or not to color the heatlhbar of a player when they have a debuf which you can cure
   ShowMana = true,								-- Whether or not to show mana
   ShowThreat = true,							-- Whether or not to show the threat warnings
@@ -1252,6 +1250,11 @@ end
 -- Sets persisted variables to their default, if they do not exist.
 local function InitVariables()
 	ApplyDefaults(Healium, HealiumDefaults)
+
+	-- The 3.6.0 dispel audio warning is gone: 12.1 blocks hooking the Aura
+	-- Container's buttons, whose visibility is a secret aspect.
+	Healium.EnableDebufAudio = nil
+	Healium.DebufAudioFile = nil
 	
 	if HealiumGlobal.Friends == nil then
 		HealiumGlobal.Friends = { }
@@ -1498,7 +1501,6 @@ function Healium_OnEvent(frame, event, ...)
 		Healium_UpdateFriends()
 		Healium_UpdateShowThreat()
 		Healium_UpdateShowRaidIcons()
-		Healium_InitDebuffSound()
 		Healium_UpdateButtons()		
 		Healium_UpdateShowRole()	
 		LoadedTime = GetTime()
