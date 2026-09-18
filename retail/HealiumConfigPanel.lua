@@ -1173,47 +1173,6 @@ local function EnableDebuffButtonHighlightingCheck_OnClick(frame)
 	Healium_UpdateEnableDebuffs()
 end
 
-local function EnableOffensiveDispelAudioCheck_OnClick(frame)
-	Healium.EnableOffensiveDispelAudio = frame:GetChecked() or false
-end
-
-local function EnableDebuffAudioCheck_OnClick(frame)
-	Healium.EnableDebufAudio = frame:GetChecked() or false
-	Healium_UpdateEnableDebuffs()
-end
-
-local SoundDropDown
-
-local function SoundDropDownMenuItem_OnClick(dropdownbutton)
-	Lib_UIDropDownMenu_SetSelectedValue(dropdownbutton.owner, dropdownbutton.value)
-	Lib_UIDropDownMenu_SetText(dropdownbutton.owner, dropdownbutton.value)
-	Healium.DebufAudioFile = dropdownbutton.value
-	Healium_InitDebuffSound()
-	Healium_PlayDebuffSound()
-end
-
-local function SoundDropDownMenu_Init(frame, level)
-	level = level or 1
-	local info = Lib_UIDropDownMenu_CreateInfo()
-	local current = Healium.DebufAudioFile
-
-	for _, entry in ipairs(Healium_Sounds) do
-		local name = next(entry, nil)
-		if name then
-			info.text = name
-			info.value = name
-			info.func = SoundDropDownMenuItem_OnClick
-			info.owner = frame
-			info.checked = nil
-			Lib_UIDropDownMenu_AddButton(info, level)
-
-			if name == current then
-				Lib_UIDropDownMenu_SetSelectedValue(frame, name)
-			end
-		end
-	end
-end
-
 local function ShowDebuffIconCheck_OnClick(frame)
 	Healium.ShowDebuffIcon = frame:GetChecked() or false
 	Healium_UpdateEnableDebuffs()
@@ -1698,7 +1657,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	local DebuffWarningsSubText = scrollchild:CreateFontString(nil, "OVERLAY","GameFontNormalSmall")
 	DebuffWarningsSubText:SetJustifyH("LEFT")
 	DebuffWarningsSubText:SetPoint("TOPLEFT", DebuffWarningsTitleText, "BOTTOMLEFT", 0, 0)
-	DebuffWarningsSubText:SetText("Debuff warnings are audible and visual indicators that|nnotify you when you can cure a debuff on a player.")
+	DebuffWarningsSubText:SetText("Debuff warnings are visual indicators that|nnotify you when you can cure a debuff on a player.")
 	DebuffWarningsSubText:SetTextColor(1,1,1,1) 
 
 	
@@ -1761,47 +1720,10 @@ function Healium_CreateConfigPanel(Class, Version)
 	ShowDebuffIconCheck:SetScript("OnClick", ShowDebuffIconCheck_OnClick)
 	ShowDebuffIconCheck.tooltipText = "Shows a Blizzard-managed debuff icon over each configured cure button that can remove it"
 
-	-- Enable Debuff Audio check button
-	local EnableDebuffAudioCheck = CreateFrame("CheckButton","$parentEnableDebuffAudioCheckButton",scrollchild,"ChatConfigCheckButtonTemplate")
-	EnableDebuffAudioCheck:SetPoint("TOPLEFT", ShowDebuffIconCheck, "BOTTOMLEFT", 0, 0)
-	EnableDebuffAudioCheck.Text = EnableDebuffAudioCheck:CreateFontString(nil, "BACKGROUND","GameFontNormal")
-	EnableDebuffAudioCheck.Text:SetPoint("LEFT", EnableDebuffAudioCheck, "RIGHT", 0)
-	EnableDebuffAudioCheck.Text:SetText("Audio Warning")
-	table.insert(EnableDebuffsCheck.children, EnableDebuffAudioCheck.Text)
-	EnableDebuffAudioCheck:SetScript("OnClick", EnableDebuffAudioCheck_OnClick)
-	EnableDebuffAudioCheck.tooltipText = "Plays a sound when a unit within range has a debuff one of your buttons can cure.  At most one sound every 7 seconds."
-
-	-- Offensive dispel audio check button
-	local EnableOffensiveDispelAudioCheck = CreateFrame("CheckButton","$parentEnableOffensiveDispelAudioCheckButton",scrollchild,"ChatConfigCheckButtonTemplate")
-	EnableOffensiveDispelAudioCheck:SetPoint("TOPLEFT", EnableDebuffAudioCheck, "BOTTOMLEFT", 0, 0)
-	EnableOffensiveDispelAudioCheck.Text = EnableOffensiveDispelAudioCheck:CreateFontString(nil, "BACKGROUND","GameFontNormal")
-	EnableOffensiveDispelAudioCheck.Text:SetPoint("LEFT", EnableOffensiveDispelAudioCheck, "RIGHT", 0)
-	EnableOffensiveDispelAudioCheck.Text:SetText("Arena Dispel Audio Warning")
-	table.insert(EnableDebuffsCheck.children, EnableOffensiveDispelAudioCheck.Text)
-	EnableOffensiveDispelAudioCheck:SetScript("OnClick", EnableOffensiveDispelAudioCheck_OnClick)
-	EnableOffensiveDispelAudioCheck.tooltipText = "Plays the same sound when an arena opponent has a buff one of your Arena buttons can dispel."
-
-	-- Sound drop down
-	SoundDropDown = CreateFrame("Frame", "$parentSoundDropDown", scrollchild, "Lib_UIDropDownMenuTemplate")
-	SoundDropDown:SetPoint("TOPLEFT", EnableOffensiveDispelAudioCheck, "BOTTOMLEFT", 65, 0)
-	SoundDropDown.Text = SoundDropDown:CreateFontString(nil, "OVERLAY","GameFontNormal")
-	SoundDropDown.Text:SetText("Audio File")
-	SoundDropDown.Text:SetPoint("TOPLEFT",SoundDropDown,"TOPLEFT",-60,-5)
-	Lib_UIDropDownMenu_Initialize(SoundDropDown, SoundDropDownMenu_Init)
-	table.insert(EnableDebuffsCheck.children, SoundDropDown.Text)
-
-	-- Play sound button
-	local PlayButton = CreateFrame("Button", "$parentPlaySoundButton", scrollchild, "UIPanelButtonTemplate")
-	PlayButton:SetText("Play")
-	PlayButton:SetWidth(54)
-	PlayButton:SetHeight(22)
-	PlayButton:SetPoint("LEFT", SoundDropDown, "RIGHT", 120, 0)
-	PlayButton:SetScript("OnClick", Healium_PlayDebuffSound)
-
 	-- CPU Intensive Settings text
 	local UpdatingTitleText = scrollchild:CreateFontString(nil, "OVERLAY","GameFontNormalLarge")
 	UpdatingTitleText:SetJustifyH("LEFT")
-	UpdatingTitleText:SetPoint("TOPLEFT", SoundDropDown, "BOTTOMLEFT", -45, -40)
+	UpdatingTitleText:SetPoint("TOPLEFT", ShowDebuffIconCheck, "BOTTOMLEFT", -20, -40)
 	UpdatingTitleText:SetText("CPU Intensive Settings")
 
 	local UpdatingTitleSubText = scrollchild:CreateFontString(nil, "OVERLAY","GameFontNormalSmall")
@@ -1926,9 +1848,6 @@ function Healium_CreateConfigPanel(Class, Version)
 	EnableDebuffHealthbarHighlightingCheck:SetChecked(Healium.EnableDebufHealthbarHighlighting)
 	EnableDebuffButtonHighlightingCheck:SetChecked(Healium.EnableDebufButtonHighlighting)
 	ShowDebuffIconCheck:SetChecked(Healium.ShowDebuffIcon)
-	EnableDebuffAudioCheck:SetChecked(Healium.EnableDebufAudio)
-	EnableOffensiveDispelAudioCheck:SetChecked(Healium.EnableOffensiveDispelAudio)
-	Lib_UIDropDownMenu_SetText(SoundDropDown, Healium.DebufAudioFile)
 	EnableDebufHealthbarColoringCheck:SetChecked(Healium.EnableDebufHealthbarColoring)
 	
 	Healium_ShowPartyCheck:SetChecked(Healium.ShowPartyFrame)
