@@ -1,3 +1,6 @@
+3.6.1
+* Retail: Removed the dispel audio warning brought back in 3.6.0.  It listened for the Aura Container's health bar debuff button to show, and 12.1.0 treats that button's visibility as a secret aspect: hooking it is blocked, and the attempt raised a Lua error for every unit frame, so the warning never played.
+
 3.6.0
 * Retail: Button profiles can now be exported to a text string and imported back, from the Button Profiles panel.  Saved profiles live in the account file, so until now a setup could not travel to another account or be shared.  The format is plain text and is parsed field by field: a pasted string is never executed as code.
 * Retail: Brought back the dispel audio warning, which retail lost when debuff detection moved to Blizzard Aura Containers.  The container never says which aura it matched, but it does show the health bar debuff button when a curable debuff is present, and that is what the warning now listens to.  Off by default; enable Audio Warning under Debuff Warnings, where the sound can also be chosen and previewed.
