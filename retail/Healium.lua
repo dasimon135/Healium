@@ -1251,7 +1251,7 @@ end
 local function InitVariables()
 	ApplyDefaults(Healium, HealiumDefaults)
 
-	-- The 3.6.0 dispel audio warning is gone: 12.1 blocks hooking the Aura
+	-- The dispel audio warning is gone: 12.1 blocks hooking the Aura
 	-- Container's buttons, whose visibility is a secret aspect.
 	Healium.EnableDebufAudio = nil
 	Healium.DebufAudioFile = nil
