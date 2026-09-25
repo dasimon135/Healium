@@ -773,7 +773,9 @@ local function GetSpellSlotID(spell, subtext)
 	-- specialisation).  The scan below cannot: it stops at the first, disabled,
 	-- copy and reports the spell as missing, which is why Flash Heal and Renew
 	-- came back with no slot on a Discipline priest.
-	if (subtext == nil or subtext == "") and C_SpellBook and C_SpellBook.FindSpellBookSlotForSpell and C_Spell and C_Spell.GetSpellInfo then
+	-- Ranked spellbooks are excluded: their slots are ordered by rank, and this
+	-- lookup would answer with one rank without saying which.
+	if not Healium_UsesRankedSpellPicker and (subtext == nil or subtext == "") and C_SpellBook and C_SpellBook.FindSpellBookSlotForSpell and C_Spell and C_Spell.GetSpellInfo then
 		local info = C_Spell.GetSpellInfo(spell)
 
 		if info and info.spellID then
@@ -795,17 +797,25 @@ local function GetSpellSlotID(spell, subtext)
 		return nil
 	end
 
+	local highestRankSlot
+
 	for _, entry in ipairs(entries) do
 		-- A disabled/future rank ends the search, exactly as the original
 		-- spellbook scan did when it ran into one.
 		if IsFutureSpellSlot(entry.slot) then
-			return nil
+			return highestRankSlot
 		end
 
 		Healium_DebugPrint("spell: ", spell, "subtext:", entry.subtext);
 
 		if not subtext then
-			return entry.slot
+			if Healium_UsesRankedSpellPicker then
+				-- Ranked Classic spellbooks are ordered from lowest to highest.
+				-- Keep scanning so picker selections follow newly learned ranks.
+				highestRankSlot = entry.slot
+			else
+				return entry.slot
+			end
 		end
 
 		if entry.subtext == subtext then

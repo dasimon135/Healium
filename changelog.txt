@@ -1,38 +1,22 @@
-3.5.9
+3.7.1
 * Retail and Classic: The class icon on the options panel is now built defensively.  It runs before the slash commands, the menu and the unit frames are created, so an unguarded lookup there could abort startup and leave the addon looking absent, with the Lua error hidden by default.
 * Classic: The dispel sound no longer builds its debug message when debugging is off, and does nothing rather than failing if no sound file resolved.
-
-3.5.8
 * Classic: Fixed an error when a unit name update arrived before the unit was fully available.  The name was also forced to uppercase even with the Uppercase Names option turned off.
 * Classic: Fixed the health bar silently keeping its previous colour, instead of updating, when a unit reported a maximum health of zero.
 * Retail and Classic: /hlm now lists the debug and dump commands, which already worked but were left undocumented.
 * Retail and Classic: Removed leftover example code that leaked a MY_VARIABLE global, along with the last remaining implicit globals.
-
-3.5.7
 * Retail: Fixed a Lua error when hovering a heal button whose unit has a secret name.  Midnight can make unit names secret, and the Target line of the tooltip was built by joining that name into a string, which is not allowed.
 * Retail: The mana bar now handles a secret dead or ghost state, and no longer greys itself out when the power type is secret rather than known to be something other than mana.
 * Retail: The threat indicator no longer compares a threat status that may be secret.
 * Retail: /hlm friends add now says the name is unavailable instead of failing when the target name is secret.
 * Retail and Classic: The minimap button no longer creates two textures under the global name icon, which could collide with other addons.
-
-3.5.6
 * Retail and Classic: Fixed Toggle Frames in the minimap menu only ever hiding the frames.  The menu passes its button as the first argument, which Healium_ToggleAllFrames read as a request to force hiding, so the entry could never bring the frames back.  The /hlm toggle command was not affected.
 * Retail and Classic: Fixed deleting a button leaving a copy of the last spell behind, which reappeared as a duplicate the next time the button count was raised.  Deleting the only button left it in place entirely.
-
-3.5.5
 * Retail: The Button Profiles and Frame Layouts panels can no longer take the whole addon down with them.  An error while building either one used to abort the rest of the startup, leaving Healium with no slash commands, no menu and no unit frames, and with Lua errors hidden by default it just looked dead.  The class icon that could cause exactly that is now guarded, and both panels report a failure instead of stopping startup.
 * Retail: The button profile and frame layout naming dialog now accepts either name Blizzard uses for the popup edit box, instead of failing silently when saving a profile.
-
-3.5.4
 * Retail: Fixed the buff and dispel filters staying unconfigured when an Aura Container refresh had to be deferred outside combat.  The pending work was only retried when a combat ended, and a frame that failed once was latched in a state that prevented it from ever being queued again.
-
-3.5.3
 * Retail: A button whose spell cannot be found in your spellbook is now greyed out instead of looking like a working button, and its tooltip names the spell and says why it is unavailable rather than claiming the button is empty.
-
-3.5.2
 * Retail and Classic: Fixed buttons that had no tooltip, no range check and no mana colouring when the spell is also listed under an inactive specialisation (Flash Heal and Renew on a Discipline priest, for example).  The spellbook lookup stopped at the disabled copy of the spell and reported it as missing; it now asks the game for the slot directly.
-
-3.5.1
 * Retail and Classic: Range checks no longer call IsSpellUsable and SpellHasRange once per button per tick.  Both answers depend only on the button column, so they are now computed once and shared by every unit frame.
 * Retail and Classic: The spellbook is indexed once instead of being rescanned from the start for every spell, and repeated SPELLS_CHANGED events are coalesced into a single update instead of rebuilding every button twice each time.
 * Retail: The Aura Container buff filter and cure filters are built once per configuration change instead of once per unit frame.
@@ -41,6 +25,27 @@
 * Classic: Fixed an error that could happen when a debuff had an unrecognised dispel type.
 * Classic: Buff matching no longer loops over every button for every buff of every unit.
 * Retail and Classic: Fixed the list of shown frames growing without ever being cleaned up.
+
+3.7.0
+* All Classics: Added class-appropriate spell lists to the button configuration menus.
+* Vanilla Classic and Classic BC: Menu selections use the highest learned spell rank; drag-and-drop can assign a specific lower rank.
+* All Classics: Added Button Profiles and Frame Layouts.
+* All Classics: Improved the minimap button appearance.
+* Removed obsolete Wrath and Cataclysm Classic support.
+
+3.6.3 Beta
+* Forever: Added support for separate Primary and Secondary talent-group profiles.
+
+3.6.2 Beta
+* Forever: Reordered the default class spell lists into heals, cures, buffs, and other abilities.
+
+3.6.1 Beta
+* Forever: Added class-appropriate healing, cure, utility, and buff spell lists.
+* Forever: Simplified spell-assignment menus.
+* Forever: Menu selections now track the highest learned rank; drag-and-drop can assign a specific lower rank.
+
+3.6.0 Beta
+* Forever: Added initial support for World of Warcraft: Forever.
 
 3.5.0
 * Retail: Added a Frame Layouts subcategory to Healium’s options, allowing you to save and recall frame positions, visibility, and scale on any character.

@@ -4,9 +4,19 @@ function Healium_CreateMiniMapButton()
   local button = CreateFrame("Button", "HealiumMiniMap", Minimap)
   button:SetFrameStrata("MEDIUM") -- needed or else appears underneath
 
+  -- Both textures are unnamed on purpose: naming them creates globals, and two
+  -- textures under the same name collide with whatever else claims it.
   button.icon = button:CreateTexture(nil, "BACKGROUND")
   button.overlay = button:CreateTexture(nil, "OVERLAY")
-  button.icon:SetAllPoints()
+  button.icon:SetPoint("CENTER", button, "CENTER")
+  button.icon:SetSize(24, 24)
+  -- Classic's version of this icon is already tightly framed; unlike Retail,
+  -- cropping its edges makes the artwork appear overly zoomed.
+  button.icon:SetTexCoord(0, 1, 0, 1)
+  local iconMask = button:CreateMaskTexture()
+  iconMask:SetTexture("Interface/CharacterFrame/TempPortraitAlphaMask")
+  iconMask:SetAllPoints(button.icon)
+  button.icon:AddMaskTexture(iconMask)
   button.overlay:SetAllPoints()
 
   local highlight = button:CreateTexture(nil, "HIGHLIGHT")
