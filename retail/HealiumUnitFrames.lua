@@ -122,6 +122,18 @@ local function SafeAuraContainerCall(frame, method, ...)
 	return ok
 end
 
+-- Creation failures are retried, so warn once but keep every attempt available
+-- under /hlm debug: which unit failed and why is what tells the two known
+-- causes apart.
+local function ReportAuraContainerFailure(kind, unit, err)
+	Healium_DebugPrint("Aura Container failed:", kind, tostring(unit), tostring(err))
+
+	if AuraContainerFailureReported then return end
+	AuraContainerFailureReported = true
+	Healium_Warn("Retail " .. kind .. " Aura Container initialization failed on "
+		.. tostring(unit) .. ": " .. tostring(err) .. ".  Retrying; /hlm debug shows every attempt.")
+end
+
 local function AddDispelTintTexture(auraButton, texture)
 	local addTexture = auraButton.AddDispelTypeTexture or auraButton.SetAuraBorder
 	if not addTexture then return end
@@ -383,10 +395,7 @@ local function RefreshFrameAuraContainers(frame)
 		ok, created = pcall(CreateBuffAuraContainer, frame, unit)
 	end
 	if not frame.BuffAuraContainer and (not ok or not created) then
-		if not AuraContainerFailureReported then
-			Healium_Warn("Retail buff Aura Container initialization failed: " .. tostring(created))
-			AuraContainerFailureReported = true
-		end
+		ReportAuraContainerFailure("buff", unit, created)
 		QueueAuraContainerRefresh(frame)
 		return
 	end
@@ -394,10 +403,7 @@ local function RefreshFrameAuraContainers(frame)
 		ok, created = pcall(CreateDebuffAuraContainer, frame, unit)
 	end
 	if not frame.DebuffAuraContainer and (not ok or not created) then
-		if not AuraContainerFailureReported then
-			Healium_Warn("Retail debuff Aura Container initialization failed: " .. tostring(created))
-			AuraContainerFailureReported = true
-		end
+		ReportAuraContainerFailure("debuff", unit, created)
 		QueueAuraContainerRefresh(frame)
 		return
 	end
@@ -434,6 +440,25 @@ local function RefreshFrameAuraContainers(frame)
 	else
 		QueueAuraContainerRefresh(frame)
 	end
+end
+
+-- Blizzard assigns a unit from inside its restricted environment, and an Aura
+-- Container created while that call is still on the stack comes back forbidden
+-- to us ("Attempt to access forbidden object from code tainted by an AddOn").
+-- Waiting for the next frame puts us alone on the stack.
+local function DeferFrameAuraContainers(frame)
+	if not C_Timer or not C_Timer.After then
+		RefreshFrameAuraContainers(frame)
+		return
+	end
+
+	if frame.AuraContainerDeferPending then return end
+	frame.AuraContainerDeferPending = true
+
+	C_Timer.After(0, function()
+		frame.AuraContainerDeferPending = nil
+		RefreshFrameAuraContainers(frame)
+	end)
 end
 
 function Healium_RefreshAuraContainers()
@@ -945,7 +970,7 @@ function HealiumUnitFrames_Button_OnAttributeChanged(frame, name, value)
 		end
 	
 		frame.TargetUnit = newUnit
-		if newUnit then RefreshFrameAuraContainers(frame) end
+		if newUnit then DeferFrameAuraContainers(frame) end
 	end
 end
 
