@@ -428,10 +428,7 @@ local function RefreshFrameAuraContainers(frame)
 			ok, created = pcall(CreateBuffAuraContainer, frame, unit)
 		end
 		if not frame.BuffAuraContainer and (not ok or not created) then
-			if not AuraContainerFailureReported then
-				Healium_Warn("Retail buff Aura Container initialization failed: " .. tostring(created))
-				AuraContainerFailureReported = true
-			end
+			ReportAuraContainerFailure("buff", unit, created)
 			QueueAuraContainerRefresh(frame)
 			return
 		end
