@@ -1,3 +1,6 @@
+3.7.2
+* Retail and Forever: Restored the Show Health Percentage option using Blizzard's secret-safe health percentage API.
+
 3.7.1
 * Unified retail and forever code with no intended functional changes.
 

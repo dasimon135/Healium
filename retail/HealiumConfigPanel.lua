@@ -808,6 +808,11 @@ local function ShowManaCheck_OnClick(frame)
 	Healium_UpdateShowMana()
 end
 
+local function PercentageCheck_OnClick(frame)
+	Healium.ShowPercentage = frame:GetChecked() or false
+	Healium_UpdatePercentageVisibility()
+end
+
 local function OpaqueHealthbarBackgroundCheck_OnClick(frame)
 	Healium.OpaqueHealthbarBackground = frame:GetChecked() or false
 	Healium_UpdateOpaqueHealthbarBackgrounds()
@@ -1027,8 +1032,13 @@ function Healium_CreateConfigPanel(Class, Version)
 	local ShowManaCheck = CreateCheck("$parentShowManaCheckButton",scrollchild,TooltipsCheck, "Shows the unit's mana.", "Show Mana")
 	ShowManaCheck:SetScript("OnClick", ShowManaCheck_OnClick)
 	
+	-- Percentage Check button
+	local PercentageCheck = CreateCheck("$parentShowPercentageCheckButton", scrollchild, ShowManaCheck,
+		"Shows the unit's health as a percentage on the right side of the health bar.", "Show Health Percentage")
+	PercentageCheck:SetScript("OnClick", PercentageCheck_OnClick)
+
 	-- ClassColor Check button
-	local ClassColorCheck = CreateCheck("$parentClassColorCheckButton",scrollchild,ShowManaCheck, 
+	local ClassColorCheck = CreateCheck("$parentClassColorCheckButton",scrollchild,PercentageCheck,
 	"Colors the healthbar based on the unit's class instead of green/yellow/red based on it's current health.", "Use Class Colors")
     ClassColorCheck:SetScript("OnClick", ClassColorCheck_OnClick)
 
@@ -1505,6 +1515,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	
 	TooltipsCheck:SetChecked(Healium.ShowToolTips)		
 	ShowManaCheck:SetChecked(Healium.ShowMana)
+	PercentageCheck:SetChecked(Healium.ShowPercentage)
 	ClassColorCheck:SetChecked(Healium.UseClassColors)
 	OpaqueHealthbarBackgroundCheck:SetChecked(Healium.OpaqueHealthbarBackground)
 	RangeCheckCheck:SetChecked(Healium.DoRangeChecks)

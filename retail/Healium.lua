@@ -59,7 +59,7 @@ local HealiumDefaults = {
   RangeCheckPeriod = .5,						-- Time period between range checks  
   EnableCooldowns = true,						-- Whether or not to do cooldown animations on buttons
   ShowToolTips = true,							-- Whether or not to display a tooltip for the spell when hovering over buttons
-  --ShowPercentage = true,						-- Whether or not to display the health percentage
+  ShowPercentage = true,						-- Whether or not to display the health percentage
   UseClassColors = false,						-- Whether or not to color the healthbar the color of the class instead of green/yellow/red
   OpaqueHealthbarBackground = false,			-- Whether or not to show a dark opaque background behind the healthbar
   ShowDefaultPartyFrames = false,				-- Whether or not to show the default party frames
@@ -368,6 +368,20 @@ function Healium_UpdateUnitNames()
 	end
 end
 
+local function Healium_ShowHidePercentage(frame)
+	if Healium.ShowPercentage and (frame.HasRole == nil) then
+		frame.HealthBar.HPText:Show()
+	else
+		frame.HealthBar.HPText:Hide()
+	end
+end
+
+function Healium_UpdatePercentageVisibility()
+	for _, frame in ipairs(Healium_Frames) do
+		Healium_ShowHidePercentage(frame)
+	end
+end
+
 function Healium_UpdateUnitHealth(unitName, NamePlate)
 	if not unitName then return end
 	if not NamePlate then return end
@@ -387,7 +401,10 @@ function Healium_UpdateUnitHealth(unitName, NamePlate)
 	if isDead then
 		NamePlate.HealthBar.HPText:SetText( "dead" )	
 	else
-		NamePlate.HealthBar.HPText:SetText( "" )
+		-- UnitHealth and UnitHealthMax may be secret during combat. Let Blizzard
+		-- calculate and format the percentage without inspecting it in Lua.
+		local HealthPercent = UnitHealthPercent(unitName, true, CurveConstants.ScaleTo100)
+		NamePlate.HealthBar.HPText:SetFormattedText("%.0f%%", HealthPercent)
 	end
 	
 	NamePlate.HealthBar:SetMinMaxValues(0,MaxHealth)
@@ -579,6 +596,7 @@ function Healium_UpdateUnitRole(unitName, NamePlate)
 	if not Healium.ShowRole then
 		icon:Hide()
 		NamePlate.HasRole = nil
+		Healium_ShowHidePercentage(NamePlate)
 		return
 	end
 	
@@ -586,6 +604,7 @@ function Healium_UpdateUnitRole(unitName, NamePlate)
 	if issecretvalue(role) then
 		NamePlate.HasRole = nil
 		icon:Hide()
+		Healium_ShowHidePercentage(NamePlate)
 		return
 	end
 	
@@ -603,6 +622,8 @@ function Healium_UpdateUnitRole(unitName, NamePlate)
 		NamePlate.HasRole = nil
 		icon:Hide()
 	end
+
+	Healium_ShowHidePercentage(NamePlate)
 end
 
 local function Healium_UpdateRoles()
