@@ -1,3 +1,6 @@
+3.7.1
+* Unified retail and forever code with no intended functional changes.
+
 3.7.0
 * All Classics: Added class-appropriate spell lists to the button configuration menus.
 * Vanilla Classic and Classic BC: Menu selections use the highest learned spell rank; drag-and-drop can assign a specific lower rank.

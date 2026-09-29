@@ -53,7 +53,16 @@ local function SetCurrentSpell(info, btnIndex, spellIndex)
 	if CanConfigureButtons() == false then return end
 	
 	local Profile = Healium_GetProfile()
-	Healium_SetProfileSpell(Profile, btnIndex, Healium_Spell.Name[spellIndex], Healium_Spell.ID[spellIndex], Healium_Spell.Icon[spellIndex])
+	if not spellIndex then
+		Healium_SetProfileSpell(Profile, btnIndex, nil, nil, nil, nil)
+		Healium_Update_ConfigPanel()
+		Healium_UpdateButtonIcons()
+		Healium_UpdateButtonAttributes()
+		return
+	end
+
+	local rank = Healium_Spell.Rank[spellIndex]
+	Healium_SetProfileSpell(Profile, btnIndex, Healium_Spell.Name[spellIndex], Healium_Spell.ID[spellIndex], Healium_Spell.Icon[spellIndex], rank or nil)
 	
 	Healium_Update_ConfigPanel()
 	Healium_UpdateButtonIcons()
@@ -357,17 +366,16 @@ local function HealiumMenu_InitializeDropDown(frame,level)
 
 	local currentSpell = Profile.SpellNames[index]
 	
-	for k, v in ipairs (Healium_Spell.Name) do
-		local spellmenuItem = { }
-		spellmenuItem.text = Healium_Spell.Name[k]
-		spellmenuItem.func = SetCurrentSpell
-		spellmenuItem.icon = Healium_Spell.Icon[k]
-		spellmenuItem.checked = currentSpell == Healium_Spell.Name[k]
-		spellmenuItem.arg1 = index
-		spellmenuItem.arg2 = k
-		
-		if (spellmenuItem.icon) then
-			table.insert(spells, spellmenuItem)
+	for spellIndex, spellName in ipairs(Healium_Spell.Name) do
+		if not Healium_Spell.Rank[spellIndex] and Healium_Spell.Icon[spellIndex] then
+			table.insert(spells, {
+				text = spellName,
+				func = SetCurrentSpell,
+				icon = Healium_Spell.Icon[spellIndex],
+				checked = currentSpell == spellName,
+				arg1 = index,
+				arg2 = spellIndex,
+			})
 		end
 	end
 
