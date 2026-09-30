@@ -36,6 +36,7 @@ local function InitForeverClassSpells(class)
 		AddSpell(2782)  -- Remove Curse
 		AddSpell(2893)  -- Abolish Poison
 		AddSpell(1126)  -- Mark of the Wild
+		AddSpell(467)   -- Thorns
 		AddSpell(29166) -- Innervate
 		AddSpell(21849) -- Gift of the Wild
 		AddSpell(20484) -- Rebirth

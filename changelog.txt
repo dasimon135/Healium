@@ -1,3 +1,7 @@
+3.7.3
+* Forever: Fixed the Me frame appearing empty and initializing with the wrong health-bar color.
+* Vanilla Classic, Classic BC, and Forever: Added Druid Thorns to the button configuration spell list.
+
 3.7.2
 * Retail and Forever: Restored the Show Health Percentage option using Blizzard's secret-safe health percentage API.
 

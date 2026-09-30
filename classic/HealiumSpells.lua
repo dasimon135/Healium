@@ -63,6 +63,7 @@ function Healium_InitSpells(class, race)
 
 				-- Buffs and other friendly abilities
 				AddSpell(1126)  -- Mark of the Wild
+				AddSpell(467)   -- Thorns
 				AddSpell(21849) -- Gift of the Wild
 				AddSpell(29166) -- Innervate
 				AddSpell(20484) -- Rebirth

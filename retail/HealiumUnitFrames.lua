@@ -565,7 +565,22 @@ function Healium_UpdatePartyFrameOrder()
 	return true
 end
 
+local function CreateCustomHeader(FrameName, ParentFrame, Unit)
+	local h = CreateFrame("Button", FrameName, ParentFrame, "HealiumUnitFrames_ButtonTemplate")
+	h.isCustom = true
+	ParentFrame.hdr = h
+	h:SetAttribute("unit", Unit)
+	h:SetPoint("TOPLEFT", ParentFrame, "BOTTOMLEFT")
+	RegisterUnitWatch(h)
+	h:Show()
+	return h
+end
+
 local function CreateMeHeader(FrameName, ParentFrame)
+	if Healium_IsForever then
+		return CreateCustomHeader(FrameName, ParentFrame, "player")
+	end
+
 	local h = CreateHeader("SecureGroupHeaderTemplate", FrameName, ParentFrame)
 	h:SetAttribute("showSolo", "true")		
 	h:SetAttribute("nameList", UnitName("Player"))
@@ -579,17 +594,6 @@ local function CreateFriendsHeader(FrameName, ParentFrame)
 	h:SetAttribute("showRaid", "true")	
 	h:SetAttribute("showParty", "true")	
 	h:SetAttribute("unitsPerColumn", 20) -- allow friends frame to show more than 5
-	h:Show()
-	return h
-end
-
-local function CreateCustomHeader(FrameName, ParentFrame, Unit)
-	local h = CreateFrame("Button", FrameName, ParentFrame, "HealiumUnitFrames_ButtonTemplate")
-	h.isCustom = true
-	ParentFrame.hdr = h
-	h:SetAttribute("unit", Unit)		
-	h:SetPoint("TOPLEFT", ParentFrame, "BOTTOMLEFT")
-	RegisterUnitWatch(h)
 	h:Show()
 	return h
 end
@@ -1057,6 +1061,9 @@ function Healium_ShowHideMeFrame(show)
 	
 	if Healium.ShowMeFrame then
 		MeFrame:Show()
+		if Healium_IsForever then
+			Healium_UpdateUnitHealth("player", MeFrame.hdr)
+		end
 	else
 		MeFrame:Hide()
 	end
