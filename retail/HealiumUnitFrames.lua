@@ -1062,6 +1062,7 @@ function Healium_ShowHideMeFrame(show)
 	if Healium.ShowMeFrame then
 		MeFrame:Show()
 		if Healium_IsForever then
+			Healium_UpdateUnitName("player", MeFrame.hdr)
 			Healium_UpdateUnitHealth("player", MeFrame.hdr)
 		end
 	else
