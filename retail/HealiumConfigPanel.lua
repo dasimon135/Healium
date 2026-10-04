@@ -1348,7 +1348,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	local DebuffWarningsSubText = scrollchild:CreateFontString(nil, "OVERLAY","GameFontNormalSmall")
 	DebuffWarningsSubText:SetJustifyH("LEFT")
 	DebuffWarningsSubText:SetPoint("TOPLEFT", DebuffWarningsTitleText, "BOTTOMLEFT", 0, 0)
-	DebuffWarningsSubText:SetText("Debuff warnings are audible and visual indicators that|nnotify you when you can cure a debuff on a player.")
+	DebuffWarningsSubText:SetText("Debuff warnings are visual indicators that|nnotify you when you can cure a debuff on a player.")
 	DebuffWarningsSubText:SetTextColor(1,1,1,1) 
 
 	
