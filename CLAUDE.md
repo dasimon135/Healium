@@ -19,21 +19,23 @@ Reload the game (`/reload`) and exercise the UI. In-game diagnostics:
 
 Changes touching secure frames or button attributes must be tested **both in and out of combat** — see "Combat lockdown" below.
 
-## Three parallel source trees
+## Two parallel source trees
 
-[retail/](retail/), [classic/](classic/) and [forever/](forever/) contain the same 12 filenames and the same public function names, but they are **separate, diverged codebases**. Never assume a fix in one applies to the others; port deliberately and check the actual file.
+[retail/](retail/) and [classic/](classic/) contain the same 12 filenames and the same public function names, but they are **separate, diverged codebases**. Never assume a fix in one applies to the other; port deliberately and check the actual file.
 
 | TOC | Interface | Sources | Flavor |
 |---|---|---|---|
 | [Healium.toc](Healium.toc) | 120100 | `retail/` | Mainline (also `## Dependencies: Blizzard_AuraContainer`) |
-| [Healium_Camelot.toc](Healium_Camelot.toc) | 16001 | `forever/` | Forever (also `## Dependencies: Blizzard_AuraContainer`) |
+| [Healium_Camelot.toc](Healium_Camelot.toc) | 16001 | `retail/` | Forever (also `## Dependencies: Blizzard_AuraContainer`) |
 | [Healium_Vanilla.toc](Healium_Vanilla.toc) | 11509 | `classic/` | Classic Era |
 | [Healium_TBC.toc](Healium_TBC.toc) | 20506 | `classic/` | TBC Classic |
 | [Healium_Mists.toc](Healium_Mists.toc) | 50504 | `classic/` | Mists Classic |
 
-One `classic/` build serves three flavors; it branches at runtime on `Healium_IsClassic` / `Healium_IsClassicBCC` / `Healium_IsClassicMists` (derived from `WOW_PROJECT_ID` at the top of [classic/Healium.lua](classic/Healium.lua#L32-L37)), plus `Healium_UsesRankedSpellPicker` for the two flavors whose spellbooks carry ranks. `classic/` also still carries `Healium_IsRetail` branches left over from when the trees were shared — they are dead on classic builds. Upstream 3.7.0 dropped Wrath and Cata Classic and added the `forever/` tree; anything in this repo's history mentioning `Healium_Cata.toc` or `Healium_IsClassicLK` predates that.
+`retail/` serves both Mainline and Forever, branching at runtime on `Healium_IsForever`. Forever's spellbook carries ranks, so it takes a different path in `GetSpellSlotID` and in `Healium_UpdateSpells`, which builds the dropdown catalog from `Healium_Spell.BaseName` through `AddDiscoveredSpell` (one entry for the highest rank plus one per named rank). Upstream 3.7.1 merged the separate `forever/` tree into `retail/`; anything in this repo's history mentioning `forever/` predates that.
 
-Feature sets differ. `retail/` has class Button Profiles, Frame Layouts, opaque healthbar backgrounds, and debuff icons; `classic/` has debuff audio (`EnableDebufAudio`) and `ShowPercentage`, which retail dropped. Adding a file to a tree means adding it to every `.toc` that loads that tree.
+One `classic/` build serves three flavors; it branches at runtime on `Healium_IsClassic` / `Healium_IsClassicBCC` / `Healium_IsClassicMists` (derived from `WOW_PROJECT_ID` at the top of [classic/Healium.lua](classic/Healium.lua#L32-L37)), plus `Healium_UsesRankedSpellPicker` for the two flavors whose spellbooks carry ranks. `classic/` also still carries `Healium_IsRetail` branches left over from when the trees were shared — they are dead on classic builds. Upstream 3.7.0 dropped Wrath and Cata Classic, so `Healium_Cata.toc` and `Healium_IsClassicLK` are gone.
+
+Feature sets differ. `retail/` has class Button Profiles, Frame Layouts, opaque healthbar backgrounds, and debuff icons; `classic/` has debuff audio (`EnableDebufAudio`), which retail dropped. Adding a file to a tree means adding it to every `.toc` that loads that tree.
 
 ### Releasing
 
