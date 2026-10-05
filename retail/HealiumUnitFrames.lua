@@ -32,7 +32,6 @@ ClickCastFrames = ClickCastFrames or {} -- used by Clique and any other click ca
 -- Retail 12.1 makes indexed aura data unavailable whenever auras are secret
 -- (which includes more than combat). Aura Containers keep selection,
 -- visibility, icons, stacks, and cooldowns inside Blizzard code.
-local AuraContainerMinInterface = 120100
 local BuffAuraGroupKey = "HealiumPlayerBuffs"
 local HealthDebuffSlotKey = "HealiumHealthDebuff"
 local SpecialPlayerBuffSpellIDs = {
@@ -68,10 +67,9 @@ end
 
 function Healium_UsesAuraContainers()
 	if AuraContainersAvailable ~= nil then return AuraContainersAvailable end
-	local interfaceVersion = select(4, GetBuildInfo())
-	AuraContainersAvailable = type(interfaceVersion) == "number"
-		and interfaceVersion >= AuraContainerMinInterface
-		and C_XMLUtil and C_XMLUtil.GetTemplateInfo
+	-- Forever uses a 1.x interface number but carries the modern Aura Container API.
+	-- Feature detection is more reliable than comparing interface numbers.
+	AuraContainersAvailable = C_XMLUtil and C_XMLUtil.GetTemplateInfo
 		and C_XMLUtil.GetTemplateInfo("CustomAuraContainerTemplate") ~= nil
 	return AuraContainersAvailable and true or false
 end
@@ -181,23 +179,40 @@ end
 
 local function BuildPlayerBuffSpellFilter()
 	local includeSpellIDs = {}
+	local function IncludeSpellID(spellID)
+		if not spellID then return end
+		includeSpellIDs[spellID] = true
+		local auraAliases = PlayerBuffAuraAliases[spellID]
+		if auraAliases then
+			for _, auraSpellID in ipairs(auraAliases) do includeSpellIDs[auraSpellID] = true end
+		end
+	end
+
 	local profile = Healium_GetProfile()
 	if profile and profile.SpellNames then
 		for i = 1, profile.ButtonCount or 0 do
 			local spellType = profile.SpellTypes and profile.SpellTypes[i]
 			if spellType == nil or spellType == Healium_Type_Spell then
-				local spellInfo = profile.SpellNames[i] and C_Spell.GetSpellInfo(profile.SpellNames[i])
+				local configuredName = profile.SpellNames[i]
+				local spellInfo = configuredName and C_Spell.GetSpellInfo(configuredName)
 				if spellInfo and spellInfo.spellID then
-					includeSpellIDs[spellInfo.spellID] = true
-					local auraAliases = PlayerBuffAuraAliases[spellInfo.spellID]
-					if auraAliases then
-						for _, auraSpellID in ipairs(auraAliases) do includeSpellIDs[auraSpellID] = true end
+					IncludeSpellID(spellInfo.spellID)
+				end
+
+				-- Ranked spells can apply an aura using any learned rank's spell ID.
+				if Healium_IsForever and configuredName then
+					for catalogIndex, catalogName in ipairs(Healium_Spell.Name) do
+						if catalogName == configuredName then
+							local slotID = Healium_Spell.ID[catalogIndex]
+							local bookInfo = slotID and C_SpellBook.GetSpellBookItemInfo(slotID, Enum.SpellBookSpellBank.Player)
+							IncludeSpellID(bookInfo and bookInfo.spellID)
+						end
 					end
 				end
 			end
 		end
 	end
-	for _, spellID in ipairs(SpecialPlayerBuffSpellIDs) do includeSpellIDs[spellID] = true end
+	for _, spellID in ipairs(SpecialPlayerBuffSpellIDs) do IncludeSpellID(spellID) end
 	return includeSpellIDs
 end
 
@@ -653,7 +668,22 @@ function Healium_UpdatePartyFrameOrder()
 	return true
 end
 
+local function CreateCustomHeader(FrameName, ParentFrame, Unit)
+	local h = CreateFrame("Button", FrameName, ParentFrame, "HealiumUnitFrames_ButtonTemplate")
+	h.isCustom = true
+	ParentFrame.hdr = h
+	h:SetAttribute("unit", Unit)
+	h:SetPoint("TOPLEFT", ParentFrame, "BOTTOMLEFT")
+	RegisterUnitWatch(h)
+	h:Show()
+	return h
+end
+
 local function CreateMeHeader(FrameName, ParentFrame)
+	if Healium_IsForever then
+		return CreateCustomHeader(FrameName, ParentFrame, "player")
+	end
+
 	local h = CreateHeader("SecureGroupHeaderTemplate", FrameName, ParentFrame)
 	h:SetAttribute("showSolo", "true")		
 	h:SetAttribute("nameList", UnitName("Player"))
@@ -667,17 +697,6 @@ local function CreateFriendsHeader(FrameName, ParentFrame)
 	h:SetAttribute("showRaid", "true")	
 	h:SetAttribute("showParty", "true")	
 	h:SetAttribute("unitsPerColumn", 20) -- allow friends frame to show more than 5
-	h:Show()
-	return h
-end
-
-local function CreateCustomHeader(FrameName, ParentFrame, Unit)
-	local h = CreateFrame("Button", FrameName, ParentFrame, "HealiumUnitFrames_ButtonTemplate")
-	h.isCustom = true
-	ParentFrame.hdr = h
-	h:SetAttribute("unit", Unit)		
-	h:SetPoint("TOPLEFT", ParentFrame, "BOTTOMLEFT")
-	RegisterUnitWatch(h)
 	h:Show()
 	return h
 end
@@ -1146,6 +1165,10 @@ function Healium_ShowHideMeFrame(show)
 	
 	if Healium.ShowMeFrame then
 		MeFrame:Show()
+		if Healium_IsForever then
+			Healium_UpdateUnitName("player", MeFrame.hdr)
+			Healium_UpdateUnitHealth("player", MeFrame.hdr)
+		end
 	else
 		MeFrame:Hide()
 	end

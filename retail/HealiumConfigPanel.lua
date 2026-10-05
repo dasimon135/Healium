@@ -383,7 +383,7 @@ local function LoadProfile()
 			Healium_Warn("Button profiles cannot be loaded during combat.")
 			return
 		end
-		local specialization = GetSpecialization() or 1
+		local specialization = Healium_GetSpecialization()
 		Healium.Profiles[specialization] = CopyProfile(savedProfile)
 
 		-- Macros are per character: a name saved on another character may not
@@ -931,12 +931,14 @@ local function DropDownMenuItem_OnClick(dropdownbutton)
 --		Healium_SetProfileSpell(Profile, i, nil, nil, nil)
 	end
 
-	for i=1, Healium_MaxClassSpells, 1 do
+	for i=1, Healium_MaxButtons, 1 do
 		if (dropdownbutton.owner == HealiumDropDown[i]) then
-			for j=0, Healium_MaxClassSpells - 1, 1 do
-				if (dropdownbutton.value == j) then
-					Healium_SetProfileSpell(Profile, i, Healium_Spell.Name[j+1], Healium_Spell.ID[j+1], Healium_Spell.Icon[j+1], nil)
-				end
+			local spellIndex = dropdownbutton.value and (dropdownbutton.value + 1)
+			if spellIndex and Healium_Spell.Name[spellIndex] then
+				local rank = Healium_Spell.Rank[spellIndex]
+				Healium_SetProfileSpell(Profile, i, Healium_Spell.Name[spellIndex], Healium_Spell.ID[spellIndex], Healium_Spell.Icon[spellIndex], rank or nil)
+			else
+				Healium_SetProfileSpell(Profile, i, nil, nil, nil, nil)
 			end
 		end
 	end
@@ -952,19 +954,30 @@ local function DropDownMenu_Init(frame,level)
 	local info = Lib_UIDropDownMenu_CreateInfo() 
 	
 	local DropDown = frame
-	local spell = Lib_UIDropDownMenu_GetText(DropDown)
+	local Profile = Healium_GetProfile()
+	local buttonIndex
+	for i = 1, Healium_MaxButtons do
+		if DropDown == HealiumDropDown[i] then
+			buttonIndex = i
+			break
+		end
+	end
+	local selectedName = buttonIndex and Profile.SpellNames[buttonIndex]
 	
 	for k, v in ipairs (Healium_Spell.Name) do
-		info.text = Healium_Spell.Name[k] 
-		info.value = k-1
-		info.func = DropDownMenuItem_OnClick
-		info.owner = DropDown
-		info.checked = nil 
-		info.icon = Healium_Spell.Icon[k]
-		if (info.icon) then
-			Lib_UIDropDownMenu_AddButton(info, level) 
-			if Healium_Spell.Name[k] == spell then
-				Lib_UIDropDownMenu_SetSelectedValue(DropDown , k-1)	
+		local rank = Healium_Spell.Rank[k]
+		if not rank then
+			info.text = Healium_Spell.Name[k]
+			info.value = k-1
+			info.func = DropDownMenuItem_OnClick
+			info.owner = DropDown
+			info.checked = selectedName == Healium_Spell.Name[k]
+			info.icon = Healium_Spell.Icon[k]
+			if (info.icon) then
+				Lib_UIDropDownMenu_AddButton(info, level)
+				if info.checked then
+					Lib_UIDropDownMenu_SetSelectedValue(DropDown , k-1)
+				end
 			end
 		end
 	end
@@ -973,8 +986,8 @@ local function DropDownMenu_Init(frame,level)
 	info.text = "No Spell"
 	info.value = #Healium_Spell.Name
 	info.func = DropDownMenuItem_OnClick
-	info.ownder = DropDown
-	info.checked = (spell == nil) or (spell == "No Spell")
+	info.owner = DropDown
+	info.checked = selectedName == nil
 	info.icon = nil
   
 	Lib_UIDropDownMenu_AddButton(info, level)   
@@ -1044,6 +1057,11 @@ end
 local function ShowManaCheck_OnClick(frame)
 	Healium.ShowMana = frame:GetChecked() or false
 	Healium_UpdateShowMana()
+end
+
+local function PercentageCheck_OnClick(frame)
+	Healium.ShowPercentage = frame:GetChecked() or false
+	Healium_UpdatePercentageVisibility()
 end
 
 local function OpaqueHealthbarBackgroundCheck_OnClick(frame)
@@ -1169,6 +1187,9 @@ function Healium_Update_ConfigPanel()
 			name = "Item: " .. Profile.SpellNames[i]
 		else
 			name = Profile.SpellNames[i]
+			if name and Profile.SpellRanks[i] then
+				name = name .. " (" .. Profile.SpellRanks[i] .. ")"
+			end
 			if name == nil then
 				name = "No Spell"
 			end
@@ -1272,8 +1293,13 @@ function Healium_CreateConfigPanel(Class, Version)
 	local ShowManaCheck = CreateCheck("$parentShowManaCheckButton",scrollchild,TooltipsCheck, "Shows the unit's mana.", "Show Mana")
 	ShowManaCheck:SetScript("OnClick", ShowManaCheck_OnClick)
 	
+	-- Percentage Check button
+	local PercentageCheck = CreateCheck("$parentShowPercentageCheckButton", scrollchild, ShowManaCheck,
+		"Shows the unit's health as a percentage on the right side of the health bar.", "Show Health Percentage")
+	PercentageCheck:SetScript("OnClick", PercentageCheck_OnClick)
+
 	-- ClassColor Check button
-	local ClassColorCheck = CreateCheck("$parentClassColorCheckButton",scrollchild,ShowManaCheck, 
+	local ClassColorCheck = CreateCheck("$parentClassColorCheckButton",scrollchild,PercentageCheck,
 	"Colors the healthbar based on the unit's class instead of green/yellow/red based on it's current health.", "Use Class Colors")
     ClassColorCheck:SetScript("OnClick", ClassColorCheck_OnClick)
 
@@ -1347,7 +1373,11 @@ function Healium_CreateConfigPanel(Class, Version)
 	local ButtonConfigTitleSubText = scrollchild:CreateFontString(nil, "OVERLAY","GameFontNormalSmall")
 	ButtonConfigTitleSubText:SetJustifyH("LEFT")
 	ButtonConfigTitleSubText:SetPoint("TOPLEFT", ButtonConfigTitleText, "BOTTOMLEFT", 0, 0)
-	ButtonConfigTitleSubText:SetText("Click the dropdowns to configure each button.|nYou may now drag and drop directly from the spellbook|nonto buttons to configure them, including buffs!")
+	if Healium_IsForever then
+		ButtonConfigTitleSubText:SetText("Dropdown selections use the highest learned rank.|nTo assign a lower rank, drag it from your spellbook onto a Healium button.|nIf lower ranks are hidden, type |cFFFFFFFF/console ShowAllSpellRanks 1|r|nand then reopen your spellbook. Buffs can be dragged too!")
+	else
+		ButtonConfigTitleSubText:SetText("Click the dropdowns to configure each button.|nYou may now drag and drop directly from the spellbook|nonto buttons to configure them, including buffs!")
+	end
 	ButtonConfigTitleSubText:SetTextColor(1,1,1,1) 	
 
 	local y_inc = 20
@@ -1746,6 +1776,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	
 	TooltipsCheck:SetChecked(Healium.ShowToolTips)		
 	ShowManaCheck:SetChecked(Healium.ShowMana)
+	PercentageCheck:SetChecked(Healium.ShowPercentage)
 	ClassColorCheck:SetChecked(Healium.UseClassColors)
 	OpaqueHealthbarBackgroundCheck:SetChecked(Healium.OpaqueHealthbarBackground)
 	RangeCheckCheck:SetChecked(Healium.DoRangeChecks)

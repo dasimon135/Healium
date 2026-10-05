@@ -11,6 +11,13 @@
 
 Healium_Debug = false
 
+local _, _, _, Healium_InterfaceVersion = GetBuildInfo()
+-- Forever currently reports WOW_PROJECT_MAINLINE. Use its 1.60-1.99
+-- interface range until Blizzard provides a unique project ID.
+Healium_IsForever = type(Healium_InterfaceVersion) == "number"
+	and Healium_InterfaceVersion > 16000
+	and Healium_InterfaceVersion < 20000
+
 HealiumDropDown = {} -- the dropdown menus on the config panel
 
 -- Constants
@@ -52,7 +59,7 @@ local HealiumDefaults = {
   RangeCheckPeriod = .5,						-- Time period between range checks  
   EnableCooldowns = true,						-- Whether or not to do cooldown animations on buttons
   ShowToolTips = true,							-- Whether or not to display a tooltip for the spell when hovering over buttons
-  --ShowPercentage = true,						-- Whether or not to display the health percentage
+  ShowPercentage = true,						-- Whether or not to display the health percentage
   UseClassColors = false,						-- Whether or not to color the healthbar the color of the class instead of green/yellow/red
   OpaqueHealthbarBackground = false,			-- Whether or not to show a dark opaque background behind the healthbar
   ShowDefaultPartyFrames = false,				-- Whether or not to show the default party frames
@@ -138,10 +145,13 @@ These only contain specifically selected spells in HealiumSpells.lua
 The Name gets filled in in Healium_InitSpells(). Healium_UpdateSpells() will fill in the ID and Icon if
 the player actually has the spell.
 --]]
-Healium_Spell = {		
-  Name = {},
-  Icon = {},
-  ID = {} -- This is the spell SlotID (spellbook index), not the global SpellID
+Healium_Spell = {
+	BaseName = {},
+	Name = {},
+	Rank = {},
+	DisplayName = {},
+	Icon = {},
+	ID = {} -- This is the spell SlotID (spellbook index), not the global SpellID
 }
 
 function Healium_GetSpellName(spellID)
@@ -241,13 +251,21 @@ function Healium_Warn(msg)
 	DEFAULT_CHAT_FRAME:AddMessage("|CFFFF0000Warning|r: " .. tostring(msg))		
 end
 
-function Healium_GetProfile()
-	local currentSpec = GetSpecialization()
-	
-	if not currentSpec then
-		currentSpec = 1
+function Healium_GetSpecialization()
+	if Healium_IsForever then
+		if _G.C_SpecializationInfo and type(_G.C_SpecializationInfo.GetActiveSpecGroup) == "function" then
+			return _G.C_SpecializationInfo.GetActiveSpecGroup() or 1
+		end
+
+		return 1
 	end
-	
+
+	return GetSpecialization() or 1
+end
+
+function Healium_GetProfile()
+	local currentSpec = Healium_GetSpecialization()
+
 	return Healium.Profiles[currentSpec] 
 end
 
@@ -356,6 +374,20 @@ function Healium_UpdateUnitNames()
 	end
 end
 
+local function Healium_ShowHidePercentage(frame)
+	if Healium.ShowPercentage and (frame.HasRole == nil) then
+		frame.HealthBar.HPText:Show()
+	else
+		frame.HealthBar.HPText:Hide()
+	end
+end
+
+function Healium_UpdatePercentageVisibility()
+	for _, frame in ipairs(Healium_Frames) do
+		Healium_ShowHidePercentage(frame)
+	end
+end
+
 function Healium_UpdateUnitHealth(unitName, NamePlate)
 	if not unitName then return end
 	if not NamePlate then return end
@@ -375,7 +407,10 @@ function Healium_UpdateUnitHealth(unitName, NamePlate)
 	if isDead then
 		NamePlate.HealthBar.HPText:SetText( "dead" )	
 	else
-		NamePlate.HealthBar.HPText:SetText( "" )
+		-- UnitHealth and UnitHealthMax may be secret during combat. Let Blizzard
+		-- calculate and format the percentage without inspecting it in Lua.
+		local HealthPercent = UnitHealthPercent(unitName, true, CurveConstants.ScaleTo100)
+		NamePlate.HealthBar.HPText:SetFormattedText("%.0f%%", HealthPercent)
 	end
 	
 	NamePlate.HealthBar:SetMinMaxValues(0,MaxHealth)
@@ -579,6 +614,7 @@ function Healium_UpdateUnitRole(unitName, NamePlate)
 	if not Healium.ShowRole then
 		icon:Hide()
 		NamePlate.HasRole = nil
+		Healium_ShowHidePercentage(NamePlate)
 		return
 	end
 	
@@ -586,6 +622,7 @@ function Healium_UpdateUnitRole(unitName, NamePlate)
 	if issecretvalue(role) then
 		NamePlate.HasRole = nil
 		icon:Hide()
+		Healium_ShowHidePercentage(NamePlate)
 		return
 	end
 	
@@ -603,6 +640,8 @@ function Healium_UpdateUnitRole(unitName, NamePlate)
 		NamePlate.HasRole = nil
 		icon:Hide()
 	end
+
+	Healium_ShowHidePercentage(NamePlate)
 end
 
 local function Healium_UpdateRoles()
@@ -738,8 +777,10 @@ local function GetSpellSlotID(spell, subtext)
 	-- the spellbook (the same heal also appearing under an inactive
 	-- specialisation).  The scan below cannot: it stops at the first, disabled,
 	-- copy and reports the spell as missing, which is why Flash Heal and Renew
-	-- came back with no slot on a Discipline priest.
-	if (subtext == nil or subtext == "") and C_SpellBook and C_SpellBook.FindSpellBookSlotForSpell and C_Spell and C_Spell.GetSpellInfo then
+	-- came back with no slot on a Discipline priest.  Forever is excluded: its
+	-- spellbook carries ranks, and this lookup would answer with one of them
+	-- without saying which.
+	if not Healium_IsForever and (subtext == nil or subtext == "") and C_SpellBook and C_SpellBook.FindSpellBookSlotForSpell and C_Spell and C_Spell.GetSpellInfo then
 		local info = C_Spell.GetSpellInfo(spell)
 
 		if info and info.spellID then
@@ -761,19 +802,27 @@ local function GetSpellSlotID(spell, subtext)
 		return nil
 	end
 
+	local highestRankSlot
+
 	for _, entry in ipairs(entries) do
 		-- A disabled/future rank ends the search, exactly as the original
 		-- spellbook scan did when it ran into one.
 		local info = C_SpellBook.GetSpellBookItemInfo(entry.slot, Enum.SpellBookSpellBank.Player)
 
 		if (info and info.itemType == Enum.SpellBookItemType.FutureSpell) then
-			return nil
+			return highestRankSlot
 		end
 
 		Healium_DebugPrint("spell: ", spell, "subtext:", entry.subtext);
 
 		if not subtext then
-			return entry.slot
+			if Healium_IsForever then
+				-- Ranked spells are ordered from lowest to highest. Keep scanning
+				-- so an unranked selection resolves to the highest learned rank.
+				highestRankSlot = entry.slot
+			else
+				return entry.slot
+			end
 		end
 
 		if entry.subtext == subtext then
@@ -781,27 +830,95 @@ local function GetSpellSlotID(spell, subtext)
 		end
 	end
 
-	return nil
+	return highestRankSlot
 end
 
--- Loops through Healium_Spell.Name[] and updates it's corresponding .ID[] and .Icon[]
+local function AddDiscoveredSpell(name, rank, slotID, icon, displayName)
+	table.insert(Healium_Spell.Name, name)
+	table.insert(Healium_Spell.Rank, rank or false)
+	table.insert(Healium_Spell.ID, slotID)
+	table.insert(Healium_Spell.Icon, icon)
+	table.insert(Healium_Spell.DisplayName, displayName or name)
+end
+
+local function GetLearnedSpellRanks(wantedName)
+	local entries = {}
+	local seenRanks = {}
+	local count = GetSpellCount()
+
+	for slotID = 1, count do
+		local spellName, spellSubName = C_SpellBook.GetSpellBookItemName(slotID, Enum.SpellBookSpellBank.Player)
+		if spellName == wantedName then
+			local info = C_SpellBook.GetSpellBookItemInfo(slotID, Enum.SpellBookSpellBank.Player)
+			local isFutureSpell = info and info.itemType == Enum.SpellBookItemType.FutureSpell
+			local rank = spellSubName ~= "" and spellSubName or nil
+			local rankKey = rank or ""
+
+			if not isFutureSpell and not seenRanks[rankKey] then
+				seenRanks[rankKey] = true
+				table.insert(entries, {
+					slotID = slotID,
+					rank = rank,
+					spellID = info and info.spellID,
+				})
+			end
+		end
+	end
+
+	return entries
+end
+
+-- Builds the dropdown catalog from the spells the character has learned.
 -- Warning UpdateSpells() is a global function from Blizzard. 
 -- This does not refresh the buttons: callers must follow it with
 -- Healium_UpdateButtonAttributes() or Healium_UpdateButtons().  It used to do
 -- that itself, which made SPELLS_CHANGED rebuild every button attribute (and
 -- every retail Aura Container) twice in a row.
 local function Healium_UpdateSpells()
-	for k, v in ipairs (Healium_Spell.Name) do
-		Healium_Spell.ID[k] = GetSpellSlotID(Healium_Spell.Name[k])
-		if (Healium_Spell.ID[k]) then
-			Healium_Spell.Icon[k] = C_Spell.GetSpellTexture(Healium_Spell.Name[k])
-			Healium_DebugPrint("Found ID for Spell Name: " .. Healium_Spell.Name[k] .. " ID:" .. Healium_Spell.ID[k])
-			Healium_DebugPrint("Texture: " .. Healium_Spell.Icon[k])
-		else 
-			Healium_DebugPrint("Could not find ID, Spell Name: ", Healium_Spell.Name[k])
-			Healium_Spell.Icon[k] = nil
+	Healium_Spell.Name = {}
+	Healium_Spell.Rank = {}
+	Healium_Spell.DisplayName = {}
+	Healium_Spell.Icon = {}
+	Healium_Spell.ID = {}
+
+	for _, spellName in ipairs(Healium_Spell.BaseName) do
+		if Healium_IsForever then
+			local entries = GetLearnedSpellRanks(spellName)
+			if #entries > 0 then
+				local highest = entries[#entries]
+				local icon = C_Spell.GetSpellTexture(highest.spellID or spellName)
+				local hasRanks = false
+
+				for _, entry in ipairs(entries) do
+					if entry.rank then
+						hasRanks = true
+						break
+					end
+				end
+
+				AddDiscoveredSpell(spellName, nil, highest.slotID, icon,
+					hasRanks and (spellName .. " (Highest Rank)") or spellName)
+
+				if hasRanks then
+					for _, entry in ipairs(entries) do
+						if entry.rank then
+							local rankIcon = C_Spell.GetSpellTexture(entry.spellID or spellName) or icon
+							AddDiscoveredSpell(spellName, entry.rank, entry.slotID, rankIcon,
+								spellName .. " (" .. entry.rank .. ")")
+						end
+					end
+				end
+			end
+		else
+			local slotID = GetSpellSlotID(spellName)
+			if slotID then
+				AddDiscoveredSpell(spellName, nil, slotID, C_Spell.GetSpellTexture(spellName), spellName)
+				Healium_DebugPrint("Found ID for Spell Name: " .. spellName .. " ID:" .. slotID)
+			else
+				Healium_DebugPrint("Could not find ID, Spell Name: ", spellName)
+			end
 		end
-	end 
+	end
 end
 
 -- SPELLS_CHANGED can fire many times in a row (login, talent swaps, procs).

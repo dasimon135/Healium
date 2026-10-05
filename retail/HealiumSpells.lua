@@ -8,7 +8,12 @@ local CuresCount = 0
 
 local function AddSpell(spellID)
 	local name = Healium_GetSpellName(spellID)
-	table.insert(Healium_Spell.Name, name)
+	if name then
+		for _, existingName in ipairs(Healium_Spell.BaseName) do
+			if existingName == name then return end
+		end
+		table.insert(Healium_Spell.BaseName, name)
+	end
 end
 
 local function Count(tab)
@@ -21,17 +26,131 @@ local function Count(tab)
 	return cnt
 end
 
+local function InitForeverClassSpells(class)
+	if class == "DRUID" then
+		AddSpell(5185)  -- Healing Touch
+		AddSpell(774)   -- Rejuvenation
+		AddSpell(8936)  -- Regrowth
+		AddSpell(48438) -- Wild Growth
+		AddSpell(8946)  -- Cure Poison
+		AddSpell(2782)  -- Remove Curse
+		AddSpell(2893)  -- Abolish Poison
+		AddSpell(1126)  -- Mark of the Wild
+		AddSpell(467)   -- Thorns
+		AddSpell(29166) -- Innervate
+		AddSpell(21849) -- Gift of the Wild
+		AddSpell(20484) -- Rebirth
+		AddSpell(50769) -- Revive
+
+		local name = Healium_GetSpellName(2782)
+		if name then Cures[name] = { CanCureCurse = true } end
+		name = Healium_GetSpellName(2893)
+		if name then Cures[name] = { CanCurePoison = true } end
+		name = Healium_GetSpellName(8946)
+		if name then Cures[name] = { CanCurePoison = true } end
+		return true
+	end
+
+	if class == "PRIEST" then
+		AddSpell(2050)  -- Lesser Heal
+		AddSpell(139)   -- Renew
+		AddSpell(2054)  -- Heal
+		AddSpell(2061)  -- Flash Heal
+		AddSpell(596)   -- Prayer of Healing
+		AddSpell(2060)  -- Greater Heal
+		AddSpell(32546) -- Binding Heal
+		AddSpell(33076) -- Prayer of Mending
+		AddSpell(47540) -- Penance
+		AddSpell(528)   -- Cure Disease
+		AddSpell(552)   -- Abolish Disease
+		AddSpell(527)   -- Dispel Magic
+		AddSpell(1243)  -- Power Word: Fortitude
+		AddSpell(17)    -- Power Word: Shield
+		AddSpell(14752) -- Divine Spirit
+		AddSpell(21562) -- Prayer of Fortitude
+		AddSpell(27681) -- Prayer of Spirit
+		AddSpell(2006)  -- Resurrection
+
+		local name = Healium_GetSpellName(527)
+		if name then Cures[name] = { CanCureMagic = true } end
+		name = Healium_GetSpellName(528)
+		if name then Cures[name] = { CanCureDisease = true } end
+		name = Healium_GetSpellName(552)
+		if name then Cures[name] = { CanCureDisease = true } end
+		return true
+	end
+
+	if class == "SHAMAN" then
+		AddSpell(331)   -- Healing Wave
+		AddSpell(8004)  -- Lesser Healing Wave
+		AddSpell(1064)  -- Chain Heal
+		AddSpell(61295) -- Riptide
+		AddSpell(526)   -- Cure Poison
+		AddSpell(2870)  -- Cure Disease
+		AddSpell(2008)  -- Ancestral Spirit
+
+		local name = Healium_GetSpellName(526)
+		if name then Cures[name] = { CanCurePoison = true } end
+		name = Healium_GetSpellName(2870)
+		if name then Cures[name] = { CanCureDisease = true } end
+		return true
+	end
+
+	if class == "PALADIN" then
+		AddSpell(635)   -- Holy Light
+		AddSpell(633)   -- Lay on Hands
+		AddSpell(19750) -- Flash of Light
+		AddSpell(20473) -- Holy Shock
+		AddSpell(1152)  -- Purify
+		AddSpell(4987)  -- Cleanse
+		AddSpell(19740) -- Blessing of Might
+		AddSpell(19742) -- Blessing of Wisdom
+		AddSpell(19977) -- Blessing of Light
+		AddSpell(1022)  -- Blessing of Protection
+		AddSpell(1044)  -- Blessing of Freedom
+		AddSpell(1038)  -- Blessing of Salvation
+		AddSpell(19752) -- Divine Intervention
+		AddSpell(6940)  -- Blessing of Sacrifice
+		AddSpell(20217) -- Blessing of Kings
+		AddSpell(25782) -- Greater Blessing of Might
+		AddSpell(25894) -- Greater Blessing of Wisdom
+		AddSpell(25890) -- Greater Blessing of Light
+		AddSpell(25895) -- Greater Blessing of Salvation
+		AddSpell(25898) -- Greater Blessing of Kings
+		AddSpell(7328)  -- Redemption
+
+		local name = Healium_GetSpellName(1152)
+		if name then Cures[name] = { CanCurePoison = true, CanCureDisease = true } end
+		name = Healium_GetSpellName(4987)
+		if name then
+			Cures[name] = { CanCurePoison = true, CanCureDisease = true, CanCureMagic = true }
+		end
+		return true
+	end
+
+	return false
+end
+
 -- These spellIDs are from wowhead
 function Healium_InitSpells(class, race)
 	local CureName
 	Healium_DebugPrint("Healium_InitSpells class = " .. class .. " race = " .. race)
 	
 	-- clear cures
+	Healium_Spell.BaseName = {}
 	Healium_Spell.Name = {}
+	Healium_Spell.Rank = {}
+	Healium_Spell.DisplayName = {}
 	Healium_Spell.Icon = {}
 	Healium_Spell.ID = {}
 	
 	Cures = {}
+
+	if Healium_IsForever and InitForeverClassSpells(class) then
+		if race == "Draenei" then AddSpell(59547) end
+		CuresCount = Count(Cures)
+		return
+	end
 	
 
 	-- Init spell list
@@ -267,7 +386,7 @@ function Healium_InitSpells(class, race)
 			Cures[CureName] = {
 				CanCurePoison = true, 
 				CanCureDisease = true,
-				CanCureMagicFunc = function() return (GetSpecialization() == 2) end	-- if monk is mistweaver then Detox cures magic
+				CanCureMagicFunc = function() return (Healium_GetSpecialization() == 2) end	-- if monk is mistweaver then Detox cures magic
 			}
 		end		
 	end
