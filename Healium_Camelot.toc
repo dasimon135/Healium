@@ -7,15 +7,15 @@
 ## IconTexture: Interface/Icons/Spell_Holy_LayOnHands
 ## Dependencies: Blizzard_AuraContainer
 HealiumVersion.lua
-forever/Healium.lua
-forever/UIDropDownMenuTemplates.xml
-forever/UIDropDownMenu.lua
-forever/HealiumHealButton.lua
-forever/HealiumSpells.lua
-forever/HealiumSlashCommands.lua
-forever/HealiumConfigPanel.lua
-forever/HealiumMinimapButton.lua
-forever/HealiumMenu.lua
-forever/Healium.xml
-forever/HealiumUnitFrames.xml
-forever/HealiumUnitFrames.lua
+retail/Healium.lua
+retail/UIDropDownMenuTemplates.xml
+retail/UIDropDownMenu.lua
+retail/HealiumHealButton.lua
+retail/HealiumSpells.lua
+retail/HealiumSlashCommands.lua
+retail/HealiumConfigPanel.lua
+retail/HealiumMinimapButton.lua
+retail/HealiumMenu.lua
+retail/Healium.xml
+retail/HealiumUnitFrames.xml
+retail/HealiumUnitFrames.lua

@@ -1,4 +1,4 @@
-3.7.1
+3.7.6
 * Retail and Classic: The class icon on the options panel is now built defensively.  It runs before the slash commands, the menu and the unit frames are created, so an unguarded lookup there could abort startup and leave the addon looking absent, with the Lua error hidden by default.
 * Classic: The dispel sound no longer builds its debug message when debugging is off, and does nothing rather than failing if no sound file resolved.
 * Classic: Fixed an error when a unit name update arrived before the unit was fully available.  The name was also forced to uppercase even with the Uppercase Names option turned off.
@@ -25,6 +25,22 @@
 * Classic: Fixed an error that could happen when a debuff had an unrecognised dispel type.
 * Classic: Buff matching no longer loops over every button for every buff of every unit.
 * Retail and Classic: Fixed the list of shown frames growing without ever being cleaned up.
+
+3.7.5
+* Retail and Forever: Corrected the debuff warning description to no longer mention removed audio alerts.
+
+3.7.4
+* Forever: Fixed the Me frame showing the player name as "Unknown Entity".
+
+3.7.3
+* Forever: Fixed the Me frame appearing empty and initializing with the wrong health-bar color.
+* Vanilla Classic, Classic BC, and Forever: Added Druid Thorns to the button configuration spell list.
+
+3.7.2
+* Retail and Forever: Restored the Show Health Percentage option using Blizzard's secret-safe health percentage API.
+
+3.7.1
+* Unified retail and forever code with no intended functional changes.
 
 3.7.0
 * All Classics: Added class-appropriate spell lists to the button configuration menus.
