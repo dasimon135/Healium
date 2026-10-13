@@ -128,6 +128,18 @@ local function SafeAuraContainerCall(frame, method, ...)
 	return ok
 end
 
+-- Creation failures are retried, so warn once but keep every attempt available
+-- under /hlm debug: which unit failed and why is what tells the two known
+-- causes apart.
+local function ReportAuraContainerFailure(kind, unit, err)
+	Healium_DebugPrint("Aura Container failed:", kind, tostring(unit), tostring(err))
+
+	if AuraContainerFailureReported then return end
+	AuraContainerFailureReported = true
+	Healium_Warn("Retail " .. kind .. " Aura Container initialization failed on "
+		.. tostring(unit) .. ": " .. tostring(err) .. ".  Retrying; /hlm debug shows every attempt.")
+end
+
 -- helpful: tint for a dispellable buff on an enemy rather than a debuff on a friend.
 local function AddDispelTintTexture(auraButton, texture, helpful)
 	local addTexture = auraButton.AddDispelTypeTexture or auraButton.SetAuraBorder
