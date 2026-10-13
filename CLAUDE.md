@@ -24,7 +24,7 @@ In-game Lua errors are written to `World of Warcraft/_retail_/Logs/General.log`,
 Before reloading, two static checks catch what a syntax parser alone does not. Both need `npm i luaparse` in a scratch directory:
 
 - `node -e "require('luaparse').parse(require('fs').readFileSync(f,'utf8'),{luaVersion:'5.1'})"` per file — syntax only.
-- `node docs/tools/lint-undefined-calls.js . <baseline>` — flags calls to a function nothing in the tree defines, where `<baseline>` is a checkout of upstream `main` (`git archive origin/main | tar -x -C dir`) used to tell WoW APIs from our own helpers. **A merge has silently dropped a local helper while keeping its call sites**; the result is `attempt to call a nil value` at runtime, which the syntax check happily accepts.
+- `NODE_PATH=<scratch>/node_modules node docs/tools/lint-undefined-calls.js . <baseline>` — flags calls to a function nothing in the tree defines, where `<baseline>` is a checkout of upstream `main` (`git archive origin/main | tar -x -C dir`) used to tell WoW APIs from our own helpers. **A merge has silently dropped a local helper while keeping its call sites**; the result is `attempt to call a nil value` at runtime, which the syntax check happily accepts.
 
 ## Two parallel source trees
 
