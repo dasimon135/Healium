@@ -19,6 +19,13 @@ Reload the game (`/reload`) and exercise the UI. In-game diagnostics:
 
 Changes touching secure frames or button attributes must be tested **both in and out of combat** — see "Combat lockdown" below.
 
+In-game Lua errors are written to `World of Warcraft/_retail_/Logs/General.log`, tagged `[E][Lua]`, with a stack — there is no BugSack here, and errors are hidden in the default UI.
+
+Before reloading, two static checks catch what a syntax parser alone does not. Both need `npm i luaparse` in a scratch directory:
+
+- `node -e "require('luaparse').parse(require('fs').readFileSync(f,'utf8'),{luaVersion:'5.1'})"` per file — syntax only.
+- `node docs/tools/lint-undefined-calls.js . <baseline>` — flags calls to a function nothing in the tree defines, where `<baseline>` is a checkout of upstream `main` (`git archive origin/main | tar -x -C dir`) used to tell WoW APIs from our own helpers. **A merge has silently dropped a local helper while keeping its call sites**; the result is `attempt to call a nil value` at runtime, which the syntax check happily accepts.
+
 ## Two parallel source trees
 
 [retail/](retail/) and [classic/](classic/) contain the same 12 filenames and the same public function names, but they are **separate, diverged codebases**. Never assume a fix in one applies to the other; port deliberately and check the actual file.
