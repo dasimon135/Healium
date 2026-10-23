@@ -1,3 +1,6 @@
+3.7.6
+* Retail: Update ToC
+
 3.7.5
 * Retail and Forever: Corrected the debuff warning description to no longer mention removed audio alerts.
 
