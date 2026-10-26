@@ -1,4 +1,4 @@
-3.8.0
+3.7.6+arena.1
 * Retail: New Arena frame, one row per arena opponent (arena1 to arena3), with its own button set per specialization, edited from the new Button Set dropdown on the options panel.  Enable it under Show Frames or with /hlm show arena; /hlm arena test points it at your target, focus and yourself outside an arena, and turns itself off when a real one starts.
 * Retail: The spells offered on the buttons are now two separate lists.  Friendly frames keep the list they always had, and the Arena frame gets its own, so party buttons are never offered Polymorph and arena buttons are never offered Flash Heal.  The hostile list covers all thirteen classes and stays narrow on purpose: offensive dispel, interrupt, targeted crowd control, and the debuffs you apply to a second enemy.  Anything left out can still be dragged from the spellbook onto a button.
 * Retail: On the Arena frame the Blizzard Aura Container shows an opponent's dispellable buff on the matching dispel button and on the health bar, the same way curable debuffs show on friendly frames.  Works for the five classes that can strip a Magic effect from an enemy: Dispel Magic, Purge, Spellsteal, Consume Magic and Tranquilizing Shot.
@@ -6,13 +6,12 @@
 * Retail: Fixed Remove Curse being listed twice for mages in the button dropdowns.
 * Retail: Fixed the options dropdowns searching for the clicked button through a spell count rather than the button count, and being unable to select any spell past the twentieth entry of a class list.
 
-3.7.7
+3.7.6+perf.1
 * Retail: Button profiles can now be exported to a text string and imported back, from the Button Profiles panel.  Saved profiles live in the account file, so until now a setup could not travel to another account or be shared.  The format is plain text and is parsed field by field: a pasted string is never executed as code.
 * Retail: A dispel audio warning was tried and dropped: 12.1.0 treats the visibility of the Aura Container health bar button as a secret aspect, so hooking it is blocked and raises a Lua error for every unit frame.
 * Retail: Aura Containers are now built one frame after Blizzard assigns the unit, instead of during that call.  A container created while Blizzard's restricted group header code is still on the stack came back forbidden to Healium, which showed up as "debuff Aura Container initialization failed: Attempt to access forbidden object" when someone joined the group.  The warning now names the unit, and every attempt is logged under /hlm debug.
-* Retail: Interface bumped to 12.1.5 (120105).  The toc keeps 120100 as well, so one build serves both.
 
-3.7.6
+Unreleased
 * Retail and Classic: The class icon on the options panel is now built defensively.  It runs before the slash commands, the menu and the unit frames are created, so an unguarded lookup there could abort startup and leave the addon looking absent, with the Lua error hidden by default.
 * Classic: The dispel sound no longer builds its debug message when debugging is off, and does nothing rather than failing if no sound file resolved.
 * Classic: Fixed an error when a unit name update arrived before the unit was fully available.  The name was also forced to uppercase even with the Uppercase Names option turned off.
@@ -39,6 +38,9 @@
 * Classic: Fixed an error that could happen when a debuff had an unrecognised dispel type.
 * Classic: Buff matching no longer loops over every button for every buff of every unit.
 * Retail and Classic: Fixed the list of shown frames growing without ever being cleaned up.
+
+3.7.6
+* Retail: Update ToC
 
 3.7.5
 * Retail and Forever: Corrected the debuff warning description to no longer mention removed audio alerts.
