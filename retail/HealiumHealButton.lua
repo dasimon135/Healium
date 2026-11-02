@@ -94,10 +94,22 @@ local function PickupOldSpell(old)
 		end
 		
 		if old.type == Healium_Type_Item then
-			PickupItem(old.ID)
+			if C_Item and C_Item.PickupItem then
+				C_Item.PickupItem(old.ID)
+			else
+				PickupItem(old.ID)
+			end
 			return 
 		end
 	end
+end
+
+local function GetItemInfoCompat(itemID)
+	if C_Item and C_Item.GetItemInfo then
+		return C_Item.GetItemInfo(itemID)
+	end
+
+	return GetItemInfo(itemID)
 end
 
 local function FinishDrag(frame,old)
@@ -183,7 +195,7 @@ local function Drag(frame)
 	if infoType == "item" then
 		-- info1 = itemId: Number - The itemId. 
 		-- info2 = itemLink : String (ItemLink) - The item's link. 
-		local name, sLink, iRarity, iLevel, iMinLevel, sType, sSubType, iStackCount, iEquipLoc, icon, iSellPrice =  GetItemInfo(info1);
+		local name, sLink, iRarity, iLevel, iMinLevel, sType, sSubType, iStackCount, iEquipLoc, icon, iSellPrice = GetItemInfoCompat(info1)
 		Healium_SetProfileItem(Profile, frame.index, name, info1, icon)				
 		FinishDrag(frame, old)
 		return

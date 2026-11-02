@@ -1,3 +1,6 @@
+3.7.7
+* Retail: Fixed dragging and dropping items onto Healium buttons generating a Lua error.
+
 3.7.6
 * Retail: Update ToC
 
