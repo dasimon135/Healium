@@ -1,6 +1,7 @@
 Healium_ConfigPanel_Category = nil
 
 local PartyFrameOrderDropDown
+local UpdateSettingsControls
 local PartyFrameOrderOptions = {
 	{ text = "Default", value = "DEFAULT" },
 	{ text = "Tank-Healer-DPS", value = "TANK_HEALER_DPS" },
@@ -946,6 +947,10 @@ function Healium_Update_ConfigPanel()
 	
 		Lib_UIDropDownMenu_SetText(HealiumDropDown[i], name)
 	end
+
+	if UpdateSettingsControls then
+		UpdateSettingsControls()
+	end
 end
 
 function Healium_CreateConfigPanel(Class, Version)
@@ -1510,9 +1515,7 @@ function Healium_CreateConfigPanel(Class, Version)
 		Lib_UIDropDownMenu_Initialize(HealiumDropDown[i], DropDownMenu_Init)
 	end
 
-	
-	Healium_Update_ConfigPanel()
-	
+	UpdateSettingsControls = function()
 	TooltipsCheck:SetChecked(Healium.ShowToolTips)		
 	ShowManaCheck:SetChecked(Healium.ShowMana)
 	PercentageCheck:SetChecked(Healium.ShowPercentage)
@@ -1565,4 +1568,7 @@ function Healium_CreateConfigPanel(Class, Version)
 	RangeCheckSlider:SetValue(1.0/Healium.RangeCheckPeriod)
 	
 	UpdateEnableDebuffsControls(EnableDebuffsCheck)
+	end
+
+	Healium_Update_ConfigPanel()
 end

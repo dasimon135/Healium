@@ -21,6 +21,8 @@ local function printUsage()
 	Healium_Print(Healium_Slash .. " show [party | pets | me | tanks | 1-8] - Shows the corresponding " .. Healium_AddonName .. " frame")
 	Healium_Print(Healium_Slash .. " toggle - Shows or Hides the current " .. Healium_AddonName .. " frames.")
 	Healium_Print(Healium_Slash .. " reset frames - Resets the positions of all " .. Healium_AddonName .. " frames")	
+	Healium_Print(Healium_Slash .. " reset profiles - Resets this character's button profiles")
+	Healium_Print(Healium_Slash .. " reset all - Resets all settings for this character")
 	Healium_Print(Healium_Slash .. " friends add [name or Target] - Adds name to the " .. Healium_AddonName .. " friends list.")	
 	Healium_Print(Healium_Slash .. " friends remove [name or Target] - Removes name from the " .. Healium_AddonName .. " friends list.")		
 	Healium_Print(Healium_Slash .. " friends show - Shows the current " .. Healium_AddonName .. " friends list.")			
@@ -34,12 +36,14 @@ end
 local function doReset(args)
 	if (args == "frames") then 
 		Healium_ResetAllFramePositions()
-	elseif (cmd == "all") then
-		Healium = nil
-		Healium_Print("Reset all complete.  Please log out now.")  
-	elseif (cmd == "profiles") then
-		Healium.Profiles = nil
-		Healium_Print("Reset Profiles complete.  Please log out now.")  
+	elseif (args == "all") then
+		if Healium_ResetCharacterSettings() then
+			Healium_Print("All character settings reset to defaults.")
+		end
+	elseif (args == "profiles") then
+		if Healium_ResetProfiles() then
+			Healium_Print("Character profiles reset to defaults.")
+		end
 	else
 		printUsage()
 	end

@@ -1,3 +1,6 @@
+3.7.8
+* All clients: Fixed /hlm reset all and /hlm reset profiles to restore defaults and update the Healium UI immediately without requiring a logout.
+
 3.7.7
 * Retail: Fixed dragging and dropping items onto Healium buttons generating a Lua error.
 
