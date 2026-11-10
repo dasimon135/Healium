@@ -1424,6 +1424,74 @@ local function InitVariables()
 	HealiumDropDownButtonIcon = nil
 end
 
+local function RefreshUIFromSettings()
+	Healium_SetScale()
+	Healium_UpdatePercentageVisibility()
+	Healium_UpdateClassColors()
+	Healium_UpdateOpaqueHealthbarBackgrounds()
+	Healium_UpdateShowMana()
+	Healium_UpdateShowIncomingHeals()
+	Healium_UpdateShowBuffs()
+	Healium_UpdateShowThreat()
+	Healium_UpdateShowRaidIcons()
+	Healium_UpdateShowRole()
+	Healium_UpdateUnitNames()
+	Healium_UpdateShowMinimapButton()
+	Healium_UpdateCloseButtons()
+	Healium_UpdateHideCaptions()
+	Healium_UpdateEnableClique()
+	Healium_UpdateButtons()
+	Healium_UpdatePartyFrameOrder()
+
+	Healium_ShowHidePartyFrame()
+	Healium_ShowHidePetsFrame()
+	Healium_ShowHideMeFrame()
+	Healium_ShowHideFriendsFrame()
+	Healium_ShowHideDamagersFrame()
+	Healium_ShowHideHealersFrame()
+	Healium_ShowHideTanksFrame()
+	Healium_ShowHideTargetFrame()
+	Healium_ShowHideFocusFrame()
+	for i = 1, 8 do
+		Healium_ShowHideGroupFrame(i)
+	end
+
+	Healium_Update_ConfigPanel()
+end
+
+local function CanResetSettings()
+	if InCombatLockdown() then
+		Healium_Warn("Settings cannot be reset during combat.")
+		return false
+	end
+	return true
+end
+
+function Healium_ResetCharacterSettings()
+	if not CanResetSettings() then return false end
+
+	local defaults = Healium_DeepCopy(HealiumDefaults)
+	for key in pairs(Healium) do
+		Healium[key] = nil
+	end
+	for key, value in pairs(defaults) do
+		Healium[key] = value
+	end
+
+	InitVariables()
+	RefreshUIFromSettings()
+	return true
+end
+
+function Healium_ResetProfiles()
+	if not CanResetSettings() then return false end
+
+	Healium.Profiles = {}
+	InitVariables()
+	RefreshUIFromSettings()
+	return true
+end
+
 function Healium_OnEvent(frame, event, ...)
 	local arg1 = select(1, ...)
 	local arg2 = select(2, ...)
